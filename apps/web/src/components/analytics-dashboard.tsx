@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { jobApi, Analytics } from "@/lib/api";
+import { jobApi } from "@/lib/api";
 import { Loader2, Briefcase, Building2, Globe, BadgeCheck } from "lucide-react";
 
 export function AnalyticsDashboard() {

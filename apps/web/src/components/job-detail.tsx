@@ -30,7 +30,7 @@ export function JobDetailPanel({
   const [salaryEst, setSalaryEst] = useState<SalaryEstimate | null>(null);
   const [similarJobs, setSimilarJobs] = useState<Job[]>([]);
   const [loadingSalary, setLoadingSalary] = useState(false);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [, setLoadingSimilar] = useState(false);
 
   useEffect(() => {
     if (!job) {

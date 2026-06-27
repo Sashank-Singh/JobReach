@@ -12,6 +12,27 @@ if ! command -v brew >/dev/null 2>&1; then
   exit 1
 fi
 
+python_bin() {
+  if [[ -n "${JOBREACH_PYTHON:-}" ]]; then
+    echo "$JOBREACH_PYTHON"
+    return
+  fi
+
+  for candidate in python3.12 python3.13; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      command -v "$candidate"
+      return
+    fi
+  done
+
+  if brew list python@3.12 >/dev/null 2>&1; then
+    echo "$(brew --prefix python@3.12)/bin/python3.12"
+    return
+  fi
+
+  echo ""
+}
+
 # Postgres 17 (pgvector Homebrew bottles target @17/@18, not @16)
 for pkg in postgresql@17 pgvector redis; do
   if ! brew list "$pkg" >/dev/null 2>&1; then
@@ -19,6 +40,26 @@ for pkg in postgresql@17 pgvector redis; do
     brew install "$pkg"
   fi
 done
+
+if ! brew list python@3.12 >/dev/null 2>&1 && [[ -z "$(python_bin)" ]]; then
+  echo "==> Installing python@3.12..."
+  brew install python@3.12
+fi
+
+PYTHON_BIN="$(python_bin)"
+if [[ -z "$PYTHON_BIN" ]]; then
+  PYTHON_BIN="$(brew --prefix python@3.12)/bin/python3.12"
+fi
+
+PYTHON_VERSION="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+case "$PYTHON_VERSION" in
+  3.12|3.13) ;;
+  *)
+    echo "Unsupported Python for this project: $PYTHON_BIN reports $PYTHON_VERSION"
+    echo "Use Python 3.12 or 3.13."
+    exit 1
+    ;;
+esac
 
 # Start services
 brew services start postgresql@17
@@ -49,6 +90,12 @@ if ! psql postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | g
   psql postgres -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
 fi
 
+if [[ "${JOBREACH_RESET_DB:-0}" == "1" ]]; then
+  echo "==> Resetting local database $DB_NAME..."
+  dropdb --if-exists "$DB_NAME"
+  createdb "$DB_NAME" -O "$DB_USER"
+fi
+
 echo "==> Enabling pgvector extension..."
 psql "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null \
   || psql "$DB_NAME" -U "$DB_USER" -c "CREATE EXTENSION IF NOT EXISTS vector;"
@@ -60,9 +107,19 @@ if [[ ! -f .env ]]; then
 fi
 
 # Python venv
+if [[ -d services/job-api/.venv ]]; then
+  VENV_VERSION="$(
+    services/job-api/.venv/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true
+  )"
+  if [[ "$VENV_VERSION" != "3.12" && "$VENV_VERSION" != "3.13" ]]; then
+    echo "==> Rebuilding services/job-api/.venv because it uses unsupported Python ${VENV_VERSION:-unknown}..."
+    rm -rf services/job-api/.venv
+  fi
+fi
+
 if [[ ! -d services/job-api/.venv ]]; then
   echo "==> Creating Python venv..."
-  python3 -m venv services/job-api/.venv
+  "$PYTHON_BIN" -m venv services/job-api/.venv
 fi
 source services/job-api/.venv/bin/activate
 pip install -q -r services/job-api/requirements.txt

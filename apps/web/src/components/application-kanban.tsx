@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobApi, ApplicationDetail } from "@/lib/api";
 import { useState } from "react";
-import { Loader2, ExternalLink, Calendar } from "lucide-react";
+import { Loader2, Calendar } from "lucide-react";
 
 const PIPELINE_STAGES = [
   { key: "applied", label: "Applied", color: "bg-blue-500/10 text-blue-400" },
