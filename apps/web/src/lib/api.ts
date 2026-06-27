@@ -1,6 +1,7 @@
 import { AuthUser, getStoredToken } from "./auth-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const REFERRAL_API_URL = process.env.NEXT_PUBLIC_REFERRAL_API_URL || "http://localhost:8001";
 
 export interface Job {
   id: string;
@@ -112,6 +113,91 @@ export interface Analytics {
   jobs_by_source: { source: string; count: number }[];
 }
 
+export interface ReferralProfile {
+  id?: string;
+  user_id?: string;
+  headline?: string | null;
+  summary?: string | null;
+  skills: string[];
+  schools: string[];
+  target_roles: string[];
+}
+
+export interface ReferralCandidate {
+  id: string;
+  user_id: string;
+  campaign_id: string;
+  name: string;
+  title?: string | null;
+  company?: string | null;
+  location?: string | null;
+  profile_url?: string | null;
+  source: string;
+  score: number;
+  reasons: string[];
+  created_at: string;
+}
+
+export interface ReferralMessage {
+  id: string;
+  user_id: string;
+  campaign_id: string;
+  candidate_id?: string | null;
+  channel: string;
+  message_type: string;
+  body: string;
+  status: string;
+  sent_at?: string | null;
+  created_at: string;
+}
+
+export interface ReferralFollowup {
+  id: string;
+  user_id: string;
+  campaign_id: string;
+  candidate_id: string;
+  message_id?: string | null;
+  sequence_number: number;
+  due_at: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ReferralEvent {
+  id: string;
+  user_id: string;
+  campaign_id: string;
+  message_id?: string | null;
+  event_type: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ReferralCampaign {
+  id: string;
+  user_id: string;
+  job_id: string;
+  company_name: string;
+  job_title: string;
+  status: string;
+  job_context: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  candidates: ReferralCandidate[];
+  messages: ReferralMessage[];
+  followups: ReferralFollowup[];
+  events: ReferralEvent[];
+}
+
+export interface ExtensionSession {
+  status: string;
+  version?: string | null;
+  last_seen_at?: string | null;
+  daily_send_limit: number;
+  sent_today: number;
+  remaining: number;
+}
+
 function authHeaders(): Record<string, string> {
   const token = getStoredToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -127,6 +213,18 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `API error: ${res.status}`);
+  }
+  return res.json();
+}
+
+async function fetchReferralApi<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${REFERRAL_API_URL}${path}`, {
+    ...options,
+    headers: { ...authHeaders(), ...options?.headers },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Referral API error: ${res.status}`);
   }
   return res.json();
 }
@@ -209,6 +307,32 @@ export const jobApi = {
 
   getAnalytics: () =>
     fetchApi<Analytics>("/api/v1/analytics"),
+};
+
+export const referralApi = {
+  startReferral: (jobId: string) =>
+    fetchReferralApi<ReferralCampaign>("/referrals/start", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId }),
+    }),
+
+  getReferral: (campaignId: string) =>
+    fetchReferralApi<ReferralCampaign>(`/referrals/${campaignId}`),
+
+  listReferrals: () =>
+    fetchReferralApi<{ campaigns: ReferralCampaign[] }>("/referrals"),
+
+  getProfile: () =>
+    fetchReferralApi<ReferralProfile | null>("/profile"),
+
+  saveProfile: (profile: ReferralProfile) =>
+    fetchReferralApi<ReferralProfile>("/profile", {
+      method: "POST",
+      body: JSON.stringify(profile),
+    }),
+
+  getExtensionSession: () =>
+    fetchReferralApi<ExtensionSession>("/extension/session"),
 };
 
 export type { AuthUser };

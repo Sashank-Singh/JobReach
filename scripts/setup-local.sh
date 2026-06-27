@@ -123,10 +123,15 @@ if [[ ! -d services/job-api/.venv ]]; then
 fi
 source services/job-api/.venv/bin/activate
 pip install -q -r services/job-api/requirements.txt
+pip install -q -r services/referral-api/requirements.txt
 
 # Migrations
 cd services/job-api
 alembic upgrade head
+cd "$ROOT"
+
+cd services/referral-api
+../../services/job-api/.venv/bin/alembic upgrade head
 cd "$ROOT"
 
 # Frontend deps + env
@@ -135,7 +140,14 @@ if [[ ! -d apps/web/node_modules ]]; then
   (cd apps/web && npm install)
 fi
 
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > apps/web/.env.local
+{
+  echo "NEXT_PUBLIC_API_URL=http://localhost:8000"
+  echo "NEXT_PUBLIC_REFERRAL_API_URL=http://localhost:8001"
+} > apps/web/.env.local
+
+PUBLIC_WEB_ORIGIN=http://localhost:3000 \
+NEXT_PUBLIC_REFERRAL_API_URL=http://localhost:8001 \
+node apps/chrome-extension/scripts/package-extension.mjs
 
 echo ""
 echo "Setup complete. Start dev with:"

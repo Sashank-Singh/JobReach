@@ -43,7 +43,10 @@ set -a
 source .env
 set +a
 
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > apps/web/.env.local
+{
+  echo "NEXT_PUBLIC_API_URL=http://localhost:8000"
+  echo "NEXT_PUBLIC_REFERRAL_API_URL=http://localhost:8001"
+} > apps/web/.env.local
 
 PIDS=()
 CLEANED_UP=0
@@ -70,12 +73,28 @@ echo "==> Running migrations..."
   source .venv/bin/activate
   alembic upgrade head
 )
+(
+  cd services/referral-api
+  ../../services/job-api/.venv/bin/alembic upgrade head
+)
+
+echo "==> Packaging Chrome extension for local referral testing"
+PUBLIC_WEB_ORIGIN=http://localhost:3000 \
+NEXT_PUBLIC_REFERRAL_API_URL=http://localhost:8001 \
+node apps/chrome-extension/scripts/package-extension.mjs
 
 echo "==> Starting Job API on http://localhost:8000"
 (
   cd services/job-api
   source .venv/bin/activate
   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
+) &
+PIDS+=($!)
+
+echo "==> Starting Referral API on http://localhost:8001"
+(
+  cd services/referral-api
+  ../../services/job-api/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --reload-dir app
 ) &
 PIDS+=($!)
 
@@ -108,6 +127,8 @@ echo ""
 echo "JobReach running locally (no Docker):"
 echo "  Dashboard : http://localhost:3000"
 echo "  API docs  : http://localhost:8000/docs"
+echo "  Referral  : http://localhost:8001/docs"
+echo "  Extension : dist/chrome-extension"
 echo ""
 echo "Workers are off by default. To run job collection workers:"
 echo "  JOBREACH_RUN_WORKERS=1 ./scripts/dev-local.sh"

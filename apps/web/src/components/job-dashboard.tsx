@@ -10,6 +10,7 @@ import { CompanyProfilePanel } from "@/components/company-profile";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { ApplicationKanban } from "@/components/application-kanban";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
+import { ReferralPipelinePanel } from "@/components/referral-pipeline";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Job, JobFilters, jobApi, ResumeData } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -221,20 +222,7 @@ export function JobDashboard() {
           <p className="text-sm font-medium text-secondary">Referrals</p>
           <p className="text-xs text-muted mt-0.5">Warm introductions</p>
         </div>
-        <div className="flex-1 flex items-center justify-center p-6 text-center">
-          {referralJobId ? (
-            <div className="space-y-2">
-              <p className="text-sm text-primary font-medium">Request sent</p>
-              <p className="text-xs text-muted">
-                Job ref. <span className="font-mono text-secondary">{referralJobId.slice(0, 8)}</span>
-              </p>
-            </div>
-          ) : (
-            <p className="text-xs text-muted leading-relaxed">
-              Select a role and choose &ldquo;Request referral&rdquo; to start an introduction.
-            </p>
-          )}
-        </div>
+        <ReferralPipelinePanel jobId={referralJobId} />
       </aside>
 
       <CompanyProfilePanel companyId={companyId} onClose={() => setCompanyId(null)} />

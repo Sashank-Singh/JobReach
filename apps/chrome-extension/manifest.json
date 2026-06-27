@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "JobReach Referral Assistant",
+  "description": "Find referral targets and send LinkedIn outreach from JobReach campaigns.",
+  "version": "0.1.0",
+  "permissions": ["tabs", "storage", "scripting", "alarms"],
+  "host_permissions": [
+    "https://app.yourdomain.com/*",
+    "https://referrals.yourdomain.com/*",
+    "https://www.linkedin.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://app.yourdomain.com/*"],
+      "js": ["web-bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["extension-utils.js", "linkedin-content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "JobReach Referral Assistant"
+  }
+}
