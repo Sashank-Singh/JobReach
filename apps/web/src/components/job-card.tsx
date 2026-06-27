@@ -30,7 +30,9 @@ export function JobCard({ job, selected, onClick }: Props) {
           <p className="mt-1 text-sm text-secondary truncate">
             {job.company.name}
             {verified && (
-              <BadgeCheck className="inline w-3.5 h-3.5 ml-1 -mt-0.5 text-accent align-middle" title="Verified listing" />
+              <span title="Verified listing" className="inline-flex align-middle ml-1 -mt-0.5">
+                <BadgeCheck className="w-3.5 h-3.5 text-accent" />
+              </span>
             )}
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-xs text-muted">
