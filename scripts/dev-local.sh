@@ -48,6 +48,20 @@ set +a
   echo "NEXT_PUBLIC_REFERRAL_API_URL=http://localhost:8001"
 } > apps/web/.env.local
 
+free_port() {
+  local port=$1
+  local pids
+  pids=$(lsof -ti :"$port" 2>/dev/null || true)
+  if [[ -n "$pids" ]]; then
+    echo "==> Freeing port $port (stale process)"
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    sleep 1
+  fi
+}
+free_port 8000
+free_port 3000
+
 PIDS=()
 CLEANED_UP=0
 cleanup() {

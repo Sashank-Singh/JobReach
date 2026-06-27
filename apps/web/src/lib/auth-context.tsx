@@ -44,24 +44,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshMe = useCallback(async (accessToken: string) => {
-    const res = await fetch(`${API_URL}/api/v1/auth/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!res.ok) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        logout();
+        return;
+      }
+      const me = await res.json();
+      persist(accessToken, me);
+    } catch {
       logout();
-      return;
+    } finally {
+      clearTimeout(timeout);
     }
-    const me = await res.json();
-    persist(accessToken, me);
   }, [logout]);
 
   useEffect(() => {
+    let cancelled = false;
     const stored = localStorage.getItem(TOKEN_KEY);
     if (stored) {
-      refreshMe(stored).finally(() => setLoading(false));
+      refreshMe(stored).finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     } else {
       setLoading(false);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [refreshMe]);
 
   const login = async (email: string, password: string) => {
