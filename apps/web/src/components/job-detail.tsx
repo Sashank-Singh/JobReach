@@ -1,7 +1,7 @@
 "use client";
 
-import { ExternalLink, Heart, Send, UserPlus, BadgeCheck } from "lucide-react";
-import { Job, jobApi } from "@/lib/api";
+import { ExternalLink, Heart, Send, UserPlus, BadgeCheck, DollarSign, Shuffle } from "lucide-react";
+import { Job, jobApi, SalaryEstimate } from "@/lib/api";
 import { JobDescription } from "@/components/job-description";
 import { useEffect, useState } from "react";
 
@@ -27,17 +27,36 @@ export function JobDetailPanel({
   const [loading, setLoading] = useState<string | null>(null);
   const [detail, setDetail] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [salaryEst, setSalaryEst] = useState<SalaryEstimate | null>(null);
+  const [similarJobs, setSimilarJobs] = useState<Job[]>([]);
+  const [loadingSalary, setLoadingSalary] = useState(false);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   useEffect(() => {
     if (!job) {
       setDetail(null);
+      setSalaryEst(null);
+      setSimilarJobs([]);
       return;
     }
     setDetail(job);
+
     jobApi
       .getJob(job.id)
       .then((d) => setDetail({ ...d, match_score: d.match_score ?? job.match_score }))
       .catch(() => setDetail(job));
+
+    setLoadingSalary(true);
+    jobApi.getSalaryEstimate(job.id)
+      .then(setSalaryEst)
+      .catch(() => {})
+      .finally(() => setLoadingSalary(false));
+
+    setLoadingSimilar(true);
+    jobApi.getSimilarJobs(job.id)
+      .then(setSimilarJobs)
+      .catch(() => {})
+      .finally(() => setLoadingSimilar(false));
   }, [job]);
 
   if (!job || !detail) {
@@ -74,8 +93,12 @@ export function JobDetailPanel({
     }
   };
 
-  const salary = detail.salary
-    ? `$${(detail.salary.min_salary || 0).toLocaleString()} – $${(detail.salary.max_salary || 0).toLocaleString()}`
+  const hasSalary =
+    detail.salary &&
+    ((detail.salary.min_salary ?? 0) > 0 || (detail.salary.max_salary ?? 0) > 0);
+
+  const salary = hasSalary
+    ? formatSalary(detail.salary!)
     : null;
 
   const posted = detail.posted_at
@@ -148,7 +171,33 @@ export function JobDetailPanel({
         {detail.department && <Meta label="Department" value={detail.department} />}
         {detail.experience_level && <Meta label="Experience" value={detail.experience_level} />}
         {detail.remote_type && <Meta label="Work type" value={detail.remote_type} />}
-        {salary && <Meta label="Salary" value={salary} />}
+        {salary ? (
+          <Meta label="Salary" value={salary} />
+        ) : (
+          <Meta
+            label="Salary"
+            value={
+              loadingSalary && !salaryEst?.estimated
+                ? "Estimating…"
+                : salaryEst?.estimated &&
+                    (salaryEst.min_salary ?? 0) > 0 &&
+                    (salaryEst.max_salary ?? 0) > 0
+                  ? (
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="w-3 h-3 text-green-500" />
+                        {formatSalary({
+                          min_salary: salaryEst.min_salary,
+                          max_salary: salaryEst.max_salary,
+                          currency: salaryEst.currency,
+                          period: salaryEst.period,
+                        })}
+                        <span className="text-muted normal-case text-xs"> (est.)</span>
+                      </span>
+                    )
+                  : "Not disclosed"
+            }
+          />
+        )}
         {detail.visa_sponsorship != null && (
           <Meta label="Visa" value={detail.visa_sponsorship ? "Sponsored" : "Not listed"} />
         )}
@@ -172,6 +221,33 @@ export function JobDetailPanel({
         <div className="mt-6">
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted mb-3">Description</h3>
           <JobDescription html={detail.description} />
+        </div>
+      )}
+
+      {similarJobs.length > 0 && (
+        <div className="mt-8 border-t border-default pt-6">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted mb-3 flex items-center gap-1.5">
+            <Shuffle className="w-3 h-3" />
+            Similar roles
+          </h3>
+          <div className="space-y-2">
+            {similarJobs.slice(0, 3).map((sj) => (
+              <button
+                key={sj.id}
+                onClick={() => window.dispatchEvent(new CustomEvent("select-job", { detail: sj.id }))}
+                className="w-full text-left p-2.5 rounded-md hover-surface border border-default text-sm"
+              >
+                <p className="text-primary font-medium truncate">{sj.title}</p>
+                <p className="text-secondary text-xs mt-0.5">{sj.company.name}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {salaryEst && salaryEst.estimated && (
+        <div className="mt-4 text-xs text-muted border-t border-default pt-3">
+          {salaryEst.message} &middot; {salaryEst.sample_size} data points
         </div>
       )}
     </div>
@@ -213,7 +289,31 @@ function ActionButton({
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function formatSalary(salary: {
+  min_salary?: number;
+  max_salary?: number;
+  currency: string;
+  period: string;
+}): string {
+  const min = salary.min_salary ?? 0;
+  const max = salary.max_salary ?? 0;
+  const symbol =
+    salary.currency === "USD"
+      ? "$"
+      : salary.currency === "GBP"
+        ? "£"
+        : salary.currency === "EUR"
+          ? "€"
+          : `${salary.currency} `;
+  const suffix = salary.period === "hour" ? "/hr" : "";
+  if (min > 0 && max > 0 && min !== max) {
+    return `${symbol}${min.toLocaleString()} – ${symbol}${max.toLocaleString()}${suffix}`;
+  }
+  const amount = min > 0 ? min : max;
+  return `${symbol}${amount.toLocaleString()}${suffix}`;
+}
+
+function Meta({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="meta-card">
       <div className="text-xs text-muted">{label}</div>

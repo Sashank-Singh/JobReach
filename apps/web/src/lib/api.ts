@@ -36,6 +36,7 @@ export interface JobFilters {
   experience?: string;
   remote?: string;
   visa?: boolean;
+  skill?: string;
   posted_days?: number;
   salary_min?: number;
   resume_id?: string;
@@ -70,6 +71,45 @@ export interface Notification {
   body: string;
   job_count: number;
   sent_at: string;
+}
+
+export interface SalaryEstimate {
+  estimated: boolean;
+  min_salary?: number;
+  max_salary?: number;
+  currency: string;
+  period: string;
+  sample_size: number;
+  message: string;
+}
+
+export interface ApplicationDetail {
+  id: string;
+  job_id: string;
+  status: string;
+  applied_at: string;
+  interview_date?: string;
+  pipeline_order: number;
+  notes?: string;
+  job?: { id: string; title: string; company_name: string };
+}
+
+export interface SkillInfo {
+  id: string;
+  name: string;
+  category?: string;
+}
+
+export interface Analytics {
+  total_jobs: number;
+  total_companies: number;
+  avg_match_score?: number;
+  skills_demand: { skill: string; count: number }[];
+  salary_by_experience: { level: string; avg_min: number; avg_max: number; count: number }[];
+  remote_job_pct: number;
+  visa_sponsorship_pct: number;
+  top_hiring_companies: { name: string; slug: string; active_jobs: number }[];
+  jobs_by_source: { source: string; count: number }[];
 }
 
 function authHeaders(): Record<string, string> {
@@ -116,6 +156,12 @@ export const jobApi = {
       method: "POST",
     }),
 
+  getSimilarJobs: (jobId: string) =>
+    fetchApi<Job[]>(`/api/v1/jobs/${jobId}/similar`),
+
+  getSalaryEstimate: (jobId: string) =>
+    fetchApi<SalaryEstimate>(`/api/v1/jobs/${jobId}/salary-estimate`),
+
   getCompany: (id: string) => fetchApi<CompanyProfile>(`/api/v1/companies/${id}`),
 
   getCompanyBySlug: (slug: string) => fetchApi<CompanyProfile>(`/api/v1/companies/slug/${slug}`),
@@ -137,13 +183,32 @@ export const jobApi = {
 
   getSavedJobs: () => fetchApi<{ job_id: string }[]>("/api/v1/me/saved-jobs"),
 
-  getApplications: () => fetchApi<{ job_id: string; status: string }[]>("/api/v1/me/applications"),
+  getApplications: () => fetchApi<ApplicationDetail[]>("/api/v1/me/applications"),
+
+  updateApplication: (appId: string, body: Partial<{ status: string; interview_date: string; pipeline_order: number; notes: string }>) =>
+    fetchApi<ApplicationDetail>(`/api/v1/applications/${appId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
 
   getNotifications: () => fetchApi<Notification[]>("/api/v1/notifications"),
 
   triggerDigest: () => fetchApi("/api/v1/notifications/digest", { method: "POST" }),
 
   getFilters: () => fetchApi<{ id: string; name: string; filters: Record<string, string> }[]>("/api/v1/filters"),
+
+  getSkills: (category?: string, search?: string) => {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (search) params.set("search", search);
+    return fetchApi<SkillInfo[]>(`/api/v1/skills?${params}`);
+  },
+
+  getSkillCategories: () =>
+    fetchApi<{ category: string; count: number }[]>("/api/v1/skills/categories"),
+
+  getAnalytics: () =>
+    fetchApi<Analytics>("/api/v1/analytics"),
 };
 
 export type { AuthUser };

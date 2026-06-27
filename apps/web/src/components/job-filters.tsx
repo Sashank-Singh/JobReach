@@ -33,13 +33,13 @@ export function JobFiltersPanel({ filters, onChange }: Props) {
       <p className="text-xs font-medium uppercase tracking-wide text-muted">Search & filters</p>
 
       <div className="relative">
-        <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         <input
           type="text"
           placeholder="Role, company, keyword…"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          className="input-field pl-9"
+          className="input-field !pl-10"
         />
       </div>
 
@@ -75,6 +75,16 @@ export function JobFiltersPanel({ filters, onChange }: Props) {
           <option value="senior">Senior</option>
           <option value="staff">Staff+</option>
         </select>
+      </Field>
+
+      <Field label="Skill">
+        <input
+          type="text"
+          placeholder="e.g. Python, React, AWS"
+          value={filters.skill || ""}
+          onChange={(e) => update("skill", e.target.value || undefined)}
+          className="input-field"
+        />
       </Field>
 
       <Field label="Work arrangement">

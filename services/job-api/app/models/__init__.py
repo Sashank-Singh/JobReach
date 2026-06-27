@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 
 from pgvector.sqlalchemy import Vector
+import sqlalchemy as sa
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -84,6 +85,7 @@ class Job(Base):
     title: Mapped[str] = mapped_column(String(512), index=True)
     description: Mapped[str | None] = mapped_column(Text)
     description_plain: Mapped[str | None] = mapped_column(Text)
+    search_vector: Mapped[str | None] = mapped_column(sa.dialects.postgresql.TSVECTOR(), nullable=True)
     department: Mapped[str | None] = mapped_column(String(255))
     experience_level: Mapped[str | None] = mapped_column(String(100), index=True)
     remote_type: Mapped[str | None] = mapped_column(String(20), index=True)
@@ -92,6 +94,8 @@ class Job(Base):
     source: Mapped[str] = mapped_column(String(50), index=True)
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    duplicate_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    is_primary_duplicate: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -188,7 +192,12 @@ class Application(Base):
     job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id"), index=True)
     status: Mapped[str] = mapped_column(String(50), default=ApplicationStatus.APPLIED.value, index=True)
     applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    interview_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pipeline_order: Mapped[int] = mapped_column(Integer, default=0)
     notes: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     user: Mapped["User"] = relationship(back_populates="applications")
     job: Mapped["Job"] = relationship()
@@ -206,6 +215,15 @@ class Resume(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="resumes")
+
+
+class SkillCatalog(Base):
+    __tablename__ = "skill_catalog"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
+    category: Mapped[str | None] = mapped_column(String(100), index=True)
+    aliases: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
 
 class NotificationLog(Base):

@@ -84,6 +84,7 @@ class JobSearchParams(BaseModel):
     posted_days: int | None = None
     salary_min: int | None = None
     salary_max: int | None = None
+    skill: str | None = None
     resume_id: UUID | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)

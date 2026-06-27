@@ -1,13 +1,14 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Select, and_, case, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Application, Company, Job, JobEmbedding, JobSalary, JobSkill, Resume, SavedJob
 from app.schemas.job import JobDetail, JobListItem, JobListResponse, JobSearchParams
 from app.utils.html import decode_job_html, html_to_plain
+from app.utils.salary import salary_for_response
 
 
 def _job_to_list_item(job: Job, match_score: int | None = None) -> JobListItem:
@@ -22,7 +23,7 @@ def _job_to_list_item(job: Job, match_score: int | None = None) -> JobListItem:
         if job.visa_sponsorship is not None
         else (job.company.visa_sponsorship if job.company else None),
         locations=job.locations,
-        salary=job.salary,
+        salary=salary_for_response(job.salary),
         skills=[s.skill for s in job.skills],
         posted_at=job.posted_at,
         apply_url=job.apply_url,
@@ -61,9 +62,9 @@ class JobService:
 
         keyword = (params.keyword or "").strip()
         if keyword:
-            title_pattern = f"%{keyword.lower()}%"
+            ts_query = func.plainto_tsquery("english", keyword)
             query = query.order_by(
-                case((func.lower(Job.title).like(title_pattern), 0), else_=1),
+                func.ts_rank(Job.search_vector, ts_query).desc(),
                 Job.posted_at.desc().nullslast(),
                 Job.id.desc(),
             )
@@ -150,19 +151,13 @@ class JobService:
         )
 
         keyword = (params.keyword or "").strip()
-        terms = [t for t in keyword.lower().split() if len(t) >= 2]
+        if keyword:
+            ts_query = func.plainto_tsquery("english", keyword)
+            query = query.where(Job.search_vector.op("@@")(ts_query))
 
-        if terms:
-            for term in terms:
-                pattern = f"%{term}%"
-                query = query.where(
-                    or_(
-                        func.lower(Job.title).like(pattern),
-                        func.lower(func.coalesce(Job.description_plain, "")).like(pattern),
-                        func.lower(Company.name).like(pattern),
-                        func.lower(func.coalesce(Job.department, "")).like(pattern),
-                    )
-                )
+        if params.skill:
+            skill_subq = select(JobSkill.job_id).where(func.lower(JobSkill.skill) == params.skill.lower())
+            query = query.where(Job.id.in_(skill_subq))
 
         if params.company:
             query = query.where(
