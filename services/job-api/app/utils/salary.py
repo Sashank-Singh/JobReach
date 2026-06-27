@@ -115,8 +115,8 @@ def _is_plausible(min_salary: int, max_salary: int, period: str) -> bool:
     lo = min(min_salary, max_salary)
     hi = max(min_salary, max_salary)
     if period == "hour":
-        return _MIN_HOURLY <= lo <= _MAX_HOURLY and hi >= lo
-    return _MIN_ANNUAL <= lo <= _MAX_ANNUAL and hi >= lo
+        return _MIN_HOURLY <= lo <= _MAX_HOURLY and hi <= _MAX_HOURLY
+    return _MIN_ANNUAL <= lo <= _MAX_ANNUAL and hi <= _MAX_ANNUAL
 
 
 def salary_is_valid(min_salary: int | None, max_salary: int | None, period: str = "year") -> bool:

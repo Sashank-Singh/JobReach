@@ -63,6 +63,7 @@ class JobIngestionService:
         with Session(sync_engine) as session:
             self._ensure_seed_companies(session)
             self._seed_skill_catalog(session)
+            session.commit()
             companies = session.execute(
                 select(Company).where(Company.ats_board_token.isnot(None))
             ).scalars().all()
@@ -74,6 +75,7 @@ class JobIngestionService:
                     stats["jobs_created"] += created
                     stats["jobs_updated"] += updated
                     enrich_company_stats(session, company)
+                    session.commit()
                 except Exception as e:
                     session.rollback()
                     slug = getattr(company, "slug", "unknown")
@@ -256,7 +258,7 @@ class JobIngestionService:
 
         groups: dict[str, list[Job]] = {}
         for job in jobs:
-            key = f"{job.company_id}:{normalize_title(job.title)}"
+            key = f"{job.company_id}:{job.title.strip().lower()}"
             if key not in groups:
                 groups[key] = []
             groups[key].append(job)

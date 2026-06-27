@@ -43,7 +43,14 @@ class JobService:
         offset = (params.page - 1) * params.page_size
 
         if params.resume_id and total > 0:
-            return await self._search_by_relevance(params, filtered, total, offset)
+            resume_result = await self.db.execute(
+                select(Resume.embedding).where(Resume.id == params.resume_id)
+            )
+            resume_embedding = resume_result.scalar_one_or_none()
+            if resume_embedding is not None:
+                return await self._search_by_relevance(
+                    params, filtered, total, offset, resume_embedding
+                )
 
         query = self._apply_filters(
             select(Job)
@@ -91,23 +98,23 @@ class JobService:
         filtered: Select,
         total: int,
         offset: int,
+        resume_embedding: list[float],
     ) -> JobListResponse:
-        rows = (await self.db.execute(filtered)).all()
-        job_ids = [row[0] for row in rows]
-        match_scores = await self._compute_match_scores(params.resume_id, job_ids)
+        """Rank filtered jobs by resume similarity using pgvector (paginated in SQL)."""
+        filtered_subq = filtered.subquery()
+        emb_table = JobEmbedding.__table__
+        dist = emb_table.c.embedding.cosine_distance(resume_embedding)
 
-        sorted_rows = sorted(
-            rows,
-            key=lambda row: (
-                match_scores.get(row[0], -1.0),
-                row[1].timestamp() if row[1] else 0,
-            ),
-            reverse=True,
+        ranked = await self.db.execute(
+            select(filtered_subq.c.id, dist.label("dist"))
+            .select_from(filtered_subq)
+            .join(emb_table, emb_table.c.job_id == filtered_subq.c.id)
+            .order_by(dist, filtered_subq.c.posted_at.desc().nullslast())
+            .offset(offset)
+            .limit(params.page_size)
         )
-        page_rows = sorted_rows[offset : offset + params.page_size]
-        page_ids = [row[0] for row in page_rows]
-
-        if not page_ids:
+        rows = ranked.all()
+        if not rows:
             return JobListResponse(
                 jobs=[],
                 total=total,
@@ -116,6 +123,12 @@ class JobService:
                 has_more=False,
                 sorted_by_match=True,
             )
+
+        page_ids = [row[0] for row in rows]
+        match_scores = {
+            job_id: max(0, min(100, round((1 - float(distance)) * 100)))
+            for job_id, distance in rows
+        }
 
         result = await self.db.execute(
             select(Job)

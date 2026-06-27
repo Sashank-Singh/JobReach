@@ -176,10 +176,11 @@ async def similar_jobs(
         return []
 
     emb_table = JobEmbedding.__table__
+    dist = emb_table.c.embedding.cosine_distance(source_emb.embedding)
     similar = await db.execute(
-        select(JobEmbedding.job_id, emb_table.c.embedding.op("<=>")(source_emb.embedding).label("dist"))
-        .where(JobEmbedding.job_id != job_id)
-        .order_by(text("dist"))
+        select(emb_table.c.job_id, dist.label("dist"))
+        .where(emb_table.c.job_id != job_id)
+        .order_by(dist)
         .limit(limit)
     )
     similar_ids = [row[0] for row in similar.all()]
