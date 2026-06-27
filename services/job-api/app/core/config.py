@@ -2,12 +2,24 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Repo root .env (local dev without Docker) + cwd .env (Coolify / docker)
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-_ENV_FILES = (
-    _REPO_ROOT / ".env",
-    Path(".env"),
-)
+
+def _discover_env_files() -> tuple[Path, ...]:
+    """Monorepo root .env for local dev; cwd .env for Docker/Coolify."""
+    candidates: list[Path] = []
+    cwd_env = Path(".env")
+    if cwd_env.exists():
+        candidates.append(cwd_env)
+
+    core = Path(__file__).resolve()
+    if len(core.parents) > 4:
+        repo_env = core.parents[4] / ".env"
+        if repo_env.exists() and repo_env not in candidates:
+            candidates.insert(0, repo_env)
+
+    return tuple(candidates) if candidates else (Path(".env"),)
+
+
+_ENV_FILES = _discover_env_files()
 
 
 class Settings(BaseSettings):
