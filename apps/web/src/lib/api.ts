@@ -1,3 +1,5 @@
+import { AuthUser, getStoredToken } from "./auth-context";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface Job {
@@ -40,14 +42,51 @@ export interface JobFilters {
   page_size?: number;
 }
 
-export const DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
+export interface CompanyProfile {
+  id: string;
+  name: string;
+  slug: string;
+  website?: string;
+  logo_url?: string;
+  hiring_velocity?: number;
+  visa_sponsorship?: boolean;
+  interview_difficulty?: number;
+  employee_count?: number;
+  office_locations?: string[];
+  active_jobs?: number;
+  ats_type?: string;
+}
+
+export interface ResumeData {
+  id: string;
+  filename: string;
+  parsed_data: { skills?: string[]; experience?: unknown[]; education?: unknown[]; companies?: string[] };
+  created_at: string;
+}
+
+export interface Notification {
+  title: string;
+  body: string;
+  job_count: number;
+  sent_at: string;
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: { ...authHeaders(), ...options?.headers },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `API error: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -63,15 +102,12 @@ export const jobApi = {
   getJob: (id: string) => fetchApi<Job>(`/api/v1/jobs/${id}`),
 
   saveJob: (jobId: string) =>
-    fetchApi(`/api/v1/jobs/save`, {
-      method: "POST",
-      body: JSON.stringify({ job_id: jobId, user_id: DEMO_USER_ID }),
-    }),
+    fetchApi(`/api/v1/jobs/${jobId}/save`, { method: "POST" }),
 
-  applyJob: (jobId: string) =>
-    fetchApi(`/api/v1/jobs/apply`, {
+  applyJob: (jobId: string, notes?: string) =>
+    fetchApi(`/api/v1/jobs/${jobId}/apply`, {
       method: "POST",
-      body: JSON.stringify({ job_id: jobId, user_id: DEMO_USER_ID }),
+      body: JSON.stringify({ notes }),
     }),
 
   referralHandoff: (jobId: string) =>
@@ -79,11 +115,34 @@ export const jobApi = {
       method: "POST",
     }),
 
+  getCompany: (id: string) => fetchApi<CompanyProfile>(`/api/v1/companies/${id}`),
+
+  getCompanyBySlug: (slug: string) => fetchApi<CompanyProfile>(`/api/v1/companies/slug/${slug}`),
+
   uploadResume: async (file: File) => {
+    const token = getStoredToken();
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${API_URL}/api/v1/resume/upload`, { method: "POST", body: form });
+    const res = await fetch(`${API_URL}/api/v1/resume/upload`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
     if (!res.ok) throw new Error("Upload failed");
-    return res.json();
+    return res.json() as Promise<ResumeData>;
   },
+
+  getLatestResume: () => fetchApi<ResumeData | null>("/api/v1/me/resume"),
+
+  getSavedJobs: () => fetchApi<{ job_id: string }[]>("/api/v1/me/saved-jobs"),
+
+  getApplications: () => fetchApi<{ job_id: string; status: string }[]>("/api/v1/me/applications"),
+
+  getNotifications: () => fetchApi<Notification[]>("/api/v1/notifications"),
+
+  triggerDigest: () => fetchApi("/api/v1/notifications/digest", { method: "POST" }),
+
+  getFilters: () => fetchApi<{ id: string; name: string; filters: Record<string, string> }[]>("/api/v1/filters"),
 };
+
+export type { AuthUser };

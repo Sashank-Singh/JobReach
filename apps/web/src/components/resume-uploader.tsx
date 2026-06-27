@@ -1,14 +1,15 @@
 "use client";
 
 import { Upload } from "lucide-react";
-import { jobApi } from "@/lib/api";
+import { jobApi, ResumeData } from "@/lib/api";
 import { useRef, useState } from "react";
 
 interface Props {
-  onResumeUploaded: (resumeId: string) => void;
+  onResumeUploaded: (resume: ResumeData) => void;
+  latestResume?: ResumeData | null;
 }
 
-export function ResumeUploader({ onResumeUploaded }: Props) {
+export function ResumeUploader({ onResumeUploaded, latestResume }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -16,14 +17,16 @@ export function ResumeUploader({ onResumeUploaded }: Props) {
     setUploading(true);
     try {
       const resume = await jobApi.uploadResume(file);
-      onResumeUploaded(resume.id);
+      onResumeUploaded(resume);
     } finally {
       setUploading(false);
     }
   };
 
+  const skills = latestResume?.parsed_data?.skills ?? [];
+
   return (
-    <div className="p-3 border-b border-zinc-800">
+    <div className="p-3 border-b border-zinc-800 space-y-2">
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
@@ -39,6 +42,18 @@ export function ResumeUploader({ onResumeUploaded }: Props) {
         className="hidden"
         onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
       />
+      {skills.length > 0 && (
+        <div>
+          <p className="text-[10px] text-zinc-500 mb-1">Your skills</p>
+          <div className="flex flex-wrap gap-1">
+            {skills.slice(0, 8).map((s) => (
+              <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                {s}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { Search, SlidersHorizontal } from "lucide-react";
 import { JobFilters } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 interface Props {
   filters: JobFilters;
@@ -9,6 +10,20 @@ interface Props {
 }
 
 export function JobFiltersPanel({ filters, onChange }: Props) {
+  const [keyword, setKeyword] = useState(filters.keyword || "");
+
+  useEffect(() => {
+    setKeyword(filters.keyword || "");
+  }, [filters.keyword]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onChange({ ...filters, keyword: keyword || undefined, page: 1 });
+    }, 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce keyword only
+  }, [keyword]);
+
   const update = (key: keyof JobFilters, value: string | boolean | number | undefined) => {
     onChange({ ...filters, [key]: value, page: 1 });
   };
@@ -24,19 +39,31 @@ export function JobFiltersPanel({ filters, onChange }: Props) {
         <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
         <input
           type="text"
-          placeholder="Keyword, title, company..."
-          value={filters.keyword || ""}
-          onChange={(e) => update("keyword", e.target.value)}
+          placeholder="e.g. AI engineer stripe remote"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
           className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
         />
+        <p className="text-[10px] text-zinc-600 mt-1">Multi-word search · title & description</p>
       </div>
 
       <Field label="Location">
         <input
           type="text"
-          placeholder="San Francisco, Remote..."
+          placeholder="Country, city, or remote..."
           value={filters.location || ""}
           onChange={(e) => update("location", e.target.value)}
+          className="input-field"
+        />
+        <p className="text-[10px] text-zinc-600 mt-1">Try: United States, Ireland, Singapore, remote</p>
+      </Field>
+
+      <Field label="Company">
+        <input
+          type="text"
+          placeholder="stripe, openai..."
+          value={filters.company || ""}
+          onChange={(e) => update("company", e.target.value)}
           className="input-field"
         />
       </Field>

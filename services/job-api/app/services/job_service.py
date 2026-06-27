@@ -1,11 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Application, Company, Job, JobEmbedding, JobSalary, JobSkill, Resume, SavedJob
 from app.schemas.job import JobDetail, JobListItem, JobListResponse, JobSearchParams
+from app.utils.html import decode_job_html, html_to_plain
 
 
 def _job_to_list_item(job: Job, match_score: float | None = None) -> JobListItem:
@@ -36,6 +37,8 @@ class JobService:
             select(Job)
             .join(Company)
             .where(Job.is_active.is_(True))
+            .where(Job.apply_url.isnot(None))
+            .where(Job.apply_url != "")
             .options(
                 selectinload(Job.company),
                 selectinload(Job.locations),
@@ -44,18 +47,28 @@ class JobService:
             )
         )
 
-        if params.keyword:
-            pattern = f"%{params.keyword.lower()}%"
-            query = query.where(
-                or_(
-                    func.lower(Job.title).like(pattern),
-                    func.lower(Job.description).like(pattern),
-                    func.lower(Company.name).like(pattern),
+        keyword = (params.keyword or "").strip()
+        terms = [t for t in keyword.lower().split() if len(t) >= 2]
+
+        if terms:
+            for term in terms:
+                pattern = f"%{term}%"
+                query = query.where(
+                    or_(
+                        func.lower(Job.title).like(pattern),
+                        func.lower(func.coalesce(Job.description_plain, "")).like(pattern),
+                        func.lower(Company.name).like(pattern),
+                        func.lower(func.coalesce(Job.department, "")).like(pattern),
+                    )
                 )
-            )
 
         if params.company:
-            query = query.where(func.lower(Company.slug) == params.company.lower())
+            query = query.where(
+                or_(
+                    func.lower(Company.slug) == params.company.lower(),
+                    func.lower(Company.name).like(f"%{params.company.lower()}%"),
+                )
+            )
 
         if params.experience:
             query = query.where(Job.experience_level == params.experience)
@@ -72,16 +85,26 @@ class JobService:
 
         if params.location:
             from app.models import JobLocation
+            from app.utils.location import expand_location_search
 
-            loc_pattern = f"%{params.location.lower()}%"
-            location_subq = (
-                select(JobLocation.job_id)
-                .where(
+            terms = expand_location_search(params.location)
+            if not terms:
+                terms = [params.location.lower()]
+
+            loc_conditions = []
+            for term in terms:
+                pattern = f"%{term}%"
+                loc_conditions.append(
                     or_(
-                        func.lower(JobLocation.city).like(loc_pattern),
-                        func.lower(JobLocation.country).like(loc_pattern),
+                        func.lower(func.coalesce(JobLocation.city, "")).like(pattern),
+                        func.lower(func.coalesce(JobLocation.state, "")).like(pattern),
+                        func.lower(func.coalesce(JobLocation.country, "")).like(pattern),
                     )
                 )
+
+            location_subq = (
+                select(JobLocation.job_id)
+                .where(or_(*loc_conditions))
                 .distinct()
             )
             query = query.where(Job.id.in_(location_subq))
@@ -101,7 +124,17 @@ class JobService:
         total = (await self.db.execute(count_query)).scalar() or 0
 
         offset = (params.page - 1) * params.page_size
-        query = query.order_by(Job.posted_at.desc().nullslast()).offset(offset).limit(params.page_size)
+
+        if keyword:
+            title_pattern = f"%{keyword.lower()}%"
+            query = query.order_by(
+                case((func.lower(Job.title).like(title_pattern), 0), else_=1),
+                Job.posted_at.desc().nullslast(),
+            )
+        else:
+            query = query.order_by(Job.posted_at.desc().nullslast())
+
+        query = query.offset(offset).limit(params.page_size)
 
         result = await self.db.execute(query)
         jobs = result.scalars().unique().all()
@@ -138,7 +171,8 @@ class JobService:
         if not job:
             return None
         item = _job_to_list_item(job)
-        return JobDetail(**item.model_dump(), description=job.description, is_active=job.is_active)
+        description = decode_job_html(job.description) if job.description else None
+        return JobDetail(**item.model_dump(), description=description, is_active=job.is_active)
 
     async def save_job(self, user_id: UUID, job_id: UUID) -> SavedJob:
         existing = await self.db.execute(
@@ -186,3 +220,12 @@ class JobService:
         if norm_a == 0 or norm_b == 0:
             return 0.0
         return round((dot / (norm_a * norm_b)) * 100, 1)
+
+
+def normalize_job_description(description: str | None) -> tuple[str | None, str | None]:
+    """Returns (decoded_html, plain_text) for storage."""
+    if not description:
+        return None, None
+    decoded = decode_job_html(description)
+    plain = html_to_plain(decoded)
+    return decoded, plain

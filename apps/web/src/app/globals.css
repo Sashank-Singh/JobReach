@@ -17,6 +17,54 @@ body {
   color: var(--foreground);
 }
 
+.job-description {
+  @apply text-sm text-zinc-300 leading-relaxed;
+}
+
+.job-description h1,
+.job-description h2 {
+  @apply text-base font-bold text-zinc-100 mt-6 mb-2 first:mt-0;
+}
+
+.job-description h3,
+.job-description h4 {
+  @apply text-sm font-semibold text-zinc-100 mt-4 mb-1.5;
+}
+
+.job-description p {
+  @apply mb-3 text-zinc-300 leading-relaxed;
+}
+
+.job-description strong,
+.job-description b {
+  @apply font-semibold text-zinc-100;
+}
+
+.job-description ul,
+.job-description ol {
+  @apply mb-4 pl-5 space-y-1.5;
+}
+
+.job-description ul {
+  @apply list-disc;
+}
+
+.job-description ol {
+  @apply list-decimal;
+}
+
+.job-description li {
+  @apply text-zinc-300 leading-relaxed;
+}
+
+.job-description a {
+  @apply text-emerald-400 underline underline-offset-2 hover:text-emerald-300;
+}
+
+.job-description br {
+  @apply block content-[''] mb-1;
+}
+
 .input-field {
   @apply w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500;
 }

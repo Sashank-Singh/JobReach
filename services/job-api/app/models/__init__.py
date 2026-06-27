@@ -42,6 +42,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     name: Mapped[str | None] = mapped_column(String(255))
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     resumes: Mapped[list["Resume"]] = relationship(back_populates="user")
@@ -82,6 +83,7 @@ class Job(Base):
     external_id: Mapped[str] = mapped_column(String(255), index=True)
     title: Mapped[str] = mapped_column(String(512), index=True)
     description: Mapped[str | None] = mapped_column(Text)
+    description_plain: Mapped[str | None] = mapped_column(Text)
     department: Mapped[str | None] = mapped_column(String(255))
     experience_level: Mapped[str | None] = mapped_column(String(100), index=True)
     remote_type: Mapped[str | None] = mapped_column(String(20), index=True)

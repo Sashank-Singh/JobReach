@@ -1,13 +1,18 @@
 import re
 from io import BytesIO
 
-from openai import AsyncOpenAI
 from pypdf import PdfReader
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.models import Resume
 from app.services.embedding_service import EmbeddingService
+from app.services.gemini_service import gemini_service
+
+RESUME_SYSTEM_PROMPT = (
+    "Extract resume data as JSON with keys: skills (list of strings), experience (list of "
+    "objects with title, company, duration, description), education (list of objects), "
+    "companies (list of strings), projects (list of objects). Return only valid JSON."
+)
 
 
 class ResumeParserService:
@@ -22,7 +27,7 @@ class ResumeParserService:
     async def parse_and_store(self, user_id, filename: str, content: bytes) -> Resume:
         raw_text = self._extract_text(content, filename)
         parsed_data = await self._parse_structured(raw_text)
-        embedding = await self.embedding_service.embed_text(raw_text[:8000])
+        embedding = await self.embedding_service.embed_query(raw_text[:8000])
 
         resume = Resume(
             user_id=user_id,
@@ -43,8 +48,8 @@ class ResumeParserService:
         return content.decode("utf-8", errors="ignore")
 
     async def _parse_structured(self, text: str) -> dict:
-        if settings.openai_api_key:
-            return await self._parse_with_openai(text)
+        if gemini_service.enabled:
+            return await self._parse_with_gemini(text)
         return self._parse_heuristic(text)
 
     def _parse_heuristic(self, text: str) -> dict:
@@ -65,23 +70,8 @@ class ResumeParserService:
             "projects": [],
         }
 
-    async def _parse_with_openai(self, text: str) -> dict:
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Extract resume data as JSON with keys: skills (list), experience (list of "
-                        "{title, company, duration, description}), education (list), companies (list), "
-                        "projects (list). Return only valid JSON."
-                    ),
-                },
-                {"role": "user", "content": text[:12000]},
-            ],
-            response_format={"type": "json_object"},
-        )
-        import json
-
-        return json.loads(response.choices[0].message.content or "{}")
+    async def _parse_with_gemini(self, text: str) -> dict:
+        try:
+            return await gemini_service.generate_json(RESUME_SYSTEM_PROMPT, text)
+        except Exception:
+            return self._parse_heuristic(text)

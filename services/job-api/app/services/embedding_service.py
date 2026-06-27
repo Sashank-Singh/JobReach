@@ -1,22 +1,28 @@
-from openai import AsyncOpenAI
-
 from app.core.config import settings
+from app.services.gemini_service import gemini_service
 
 
 class EmbeddingService:
     async def embed_text(self, text: str) -> list[float] | None:
-        if not settings.openai_api_key or not text.strip():
-            return self._fallback_embedding(text)
+        if gemini_service.enabled and text.strip():
+            embedding = await gemini_service.embed_text(text, task_type="RETRIEVAL_DOCUMENT")
+            if embedding:
+                return embedding
 
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
-        response = await client.embeddings.create(
-            model=settings.embedding_model,
-            input=text[:8000],
-        )
-        return response.data[0].embedding
+        if not text.strip():
+            return None
+        return self._fallback_embedding(text)
+
+    async def embed_query(self, text: str) -> list[float] | None:
+        """Resume / search queries use RETRIEVAL_QUERY task type."""
+        if gemini_service.enabled and text.strip():
+            embedding = await gemini_service.embed_text(text, task_type="RETRIEVAL_QUERY")
+            if embedding:
+                return embedding
+        return await self.embed_text(text)
 
     def _fallback_embedding(self, text: str) -> list[float]:
-        """Deterministic hash-based embedding for local dev without OpenAI."""
+        """Deterministic hash-based embedding when no Gemini API key is set."""
         dim = settings.embedding_dimensions
         vec = [0.0] * dim
         tokens = text.lower().split()

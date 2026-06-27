@@ -14,21 +14,30 @@ Frontend (Next.js)          ← Dev 1 owns left panel
                 └── PostgreSQL + Playwright + OpenAI
 ```
 
-## Quick Start
+## Quick Start (Local — No Docker)
 
 ```bash
-cp .env.example .env
-# Optional: add OPENAI_API_KEY for real embeddings + resume parsing
-
-docker compose up --build
+chmod +x scripts/*.sh
+./scripts/setup-local.sh    # once: Postgres, Redis, venv, migrations
+./scripts/dev-local.sh      # API + worker + beat + frontend
 ```
 
 | Service | URL |
 |---------|-----|
 | Job Dashboard | http://localhost:3000 |
 | Job API + Swagger | http://localhost:8000/docs |
-| PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
+
+Full guide: [docs/LOCAL-DEV.md](docs/LOCAL-DEV.md)
+
+<details>
+<summary>Docker (optional — production-like)</summary>
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+</details>
 
 ## Developer 1 — Job Platform
 
@@ -65,4 +74,4 @@ JobReach/
 3. Deploy Redis
 4. Deploy `services/job-api` from GitHub (Dockerfile)
 5. Deploy `apps/web` from GitHub (Dockerfile)
-6. Set env vars: `DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`, `NEXT_PUBLIC_API_URL`
+6. Set env vars: `DATABASE_URL`, `REDIS_URL`, `GEMINI_API_KEY`, `NEXT_PUBLIC_API_URL`

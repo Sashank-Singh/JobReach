@@ -1,18 +1,43 @@
 "use client";
 
-import { ExternalLink, Heart, Send, UserPlus } from "lucide-react";
+import { ExternalLink, Heart, Send, UserPlus, BadgeCheck } from "lucide-react";
 import { Job, jobApi } from "@/lib/api";
-import { useState } from "react";
+import { JobDescription } from "@/components/job-description";
+import { useEffect, useState } from "react";
 
 interface Props {
   job: Job | null;
   onReferralStart: (jobId: string) => void;
+  onCompanyClick: (companyId: string) => void;
+  savedJobIds: Set<string>;
+  appliedJobIds: Set<string>;
+  onSaved: (jobId: string) => void;
+  onApplied: (jobId: string) => void;
 }
 
-export function JobDetailPanel({ job, onReferralStart }: Props) {
+export function JobDetailPanel({
+  job,
+  onReferralStart,
+  onCompanyClick,
+  savedJobIds,
+  appliedJobIds,
+  onSaved,
+  onApplied,
+}: Props) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Job | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!job) {
+  useEffect(() => {
+    if (!job) {
+      setDetail(null);
+      return;
+    }
+    setDetail(job);
+    jobApi.getJob(job.id).then(setDetail).catch(() => setDetail(job));
+  }, [job]);
+
+  if (!job || !detail) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
         Select a job to view details
@@ -20,39 +45,80 @@ export function JobDetailPanel({ job, onReferralStart }: Props) {
     );
   }
 
+  const isSaved = savedJobIds.has(job.id);
+  const isApplied = appliedJobIds.has(job.id);
+
   const action = async (type: "save" | "apply" | "referral") => {
     setLoading(type);
+    setError(null);
     try {
-      if (type === "save") await jobApi.saveJob(job.id);
-      if (type === "apply") await jobApi.applyJob(job.id);
+      if (type === "save") {
+        await jobApi.saveJob(job.id);
+        onSaved(job.id);
+      }
+      if (type === "apply") {
+        await jobApi.applyJob(job.id);
+        onApplied(job.id);
+      }
       if (type === "referral") {
         await jobApi.referralHandoff(job.id);
         onReferralStart(job.id);
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed");
     } finally {
       setLoading(null);
     }
   };
 
-  const salary = job.salary
-    ? `$${(job.salary.min_salary || 0).toLocaleString()} – $${(job.salary.max_salary || 0).toLocaleString()}`
+  const salary = detail.salary
+    ? `$${(detail.salary.min_salary || 0).toLocaleString()} – $${(detail.salary.max_salary || 0).toLocaleString()}`
+    : null;
+
+  const posted = detail.posted_at
+    ? new Date(detail.posted_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : null;
 
   return (
     <div className="h-full overflow-y-auto p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-100">{job.title}</h1>
-          <p className="text-zinc-400 mt-1">{job.company.name}</p>
-          {job.match_score != null && (
-            <p className="text-emerald-400 text-sm mt-2 font-medium">{job.match_score}% AI match</p>
-          )}
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-zinc-100">{detail.title}</h1>
+        <button
+          onClick={() => onCompanyClick(detail.company.id)}
+          className="text-zinc-400 mt-1 hover:text-emerald-400 transition-colors"
+        >
+          {detail.company.name} →
+        </button>
+        {detail.match_score != null && (
+          <p className="text-emerald-400 text-sm mt-2 font-medium">{detail.match_score}% AI match</p>
+        )}
+        {posted && <p className="text-xs text-zinc-500 mt-1">Posted {posted}</p>}
+        {detail.apply_url && (
+          <p className="flex items-center gap-1 text-xs text-emerald-500/80 mt-1">
+            <BadgeCheck className="w-3.5 h-3.5" />
+            Verified listing · applies on {detail.company.name}&apos;s careers page
+          </p>
+        )}
       </div>
 
+      {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
+
       <div className="flex flex-wrap gap-2 mt-4">
-        <ActionButton icon={Heart} label="Save" loading={loading === "save"} onClick={() => action("save")} />
-        <ActionButton icon={Send} label="Apply" loading={loading === "apply"} onClick={() => action("apply")} primary />
+        <ActionButton
+          icon={Heart}
+          label={isSaved ? "Saved" : "Save"}
+          loading={loading === "save"}
+          onClick={() => action("save")}
+          disabled={isSaved}
+        />
+        <ActionButton
+          icon={Send}
+          label={isApplied ? "Applied" : "Apply"}
+          loading={loading === "apply"}
+          onClick={() => action("apply")}
+          primary
+          disabled={isApplied}
+        />
         <ActionButton
           icon={UserPlus}
           label="Add Referral"
@@ -60,9 +126,9 @@ export function JobDetailPanel({ job, onReferralStart }: Props) {
           onClick={() => action("referral")}
           accent
         />
-        {job.apply_url && (
+        {detail.apply_url && (
           <a
-            href={job.apply_url}
+            href={detail.apply_url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
@@ -74,21 +140,21 @@ export function JobDetailPanel({ job, onReferralStart }: Props) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 mt-6 text-sm">
-        {job.department && <Meta label="Department" value={job.department} />}
-        {job.experience_level && <Meta label="Experience" value={job.experience_level} />}
-        {job.remote_type && <Meta label="Work type" value={job.remote_type} />}
+        {detail.department && <Meta label="Department" value={detail.department} />}
+        {detail.experience_level && <Meta label="Experience" value={detail.experience_level} />}
+        {detail.remote_type && <Meta label="Work type" value={detail.remote_type} />}
         {salary && <Meta label="Salary" value={salary} />}
-        {job.visa_sponsorship != null && (
-          <Meta label="Visa" value={job.visa_sponsorship ? "Sponsored" : "Not listed"} />
+        {detail.visa_sponsorship != null && (
+          <Meta label="Visa" value={detail.visa_sponsorship ? "Sponsored" : "Not listed"} />
         )}
-        <Meta label="Source" value={job.source} />
+        <Meta label="Source" value={detail.source} />
       </div>
 
-      {job.skills.length > 0 && (
+      {detail.skills.length > 0 && (
         <div className="mt-6">
           <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Skills</h3>
           <div className="flex flex-wrap gap-1.5">
-            {job.skills.map((s) => (
+            {detail.skills.map((s) => (
               <span key={s} className="px-2 py-1 rounded-md bg-zinc-800 text-zinc-300 text-xs">
                 {s}
               </span>
@@ -97,13 +163,10 @@ export function JobDetailPanel({ job, onReferralStart }: Props) {
         </div>
       )}
 
-      {job.description && (
-        <div className="mt-6 prose prose-invert prose-sm max-w-none">
-          <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2 not-prose">Description</h3>
-          <div
-            className="text-zinc-300 text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: job.description.slice(0, 3000) }}
-          />
+      {detail.description && (
+        <div className="mt-6">
+          <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-3 font-semibold">Description</h3>
+          <JobDescription html={detail.description} />
         </div>
       )}
     </div>
@@ -117,6 +180,7 @@ function ActionButton({
   onClick,
   primary,
   accent,
+  disabled,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -124,6 +188,7 @@ function ActionButton({
   onClick: () => void;
   primary?: boolean;
   accent?: boolean;
+  disabled?: boolean;
 }) {
   const cls = accent
     ? "bg-violet-600 hover:bg-violet-500 text-white"
@@ -134,7 +199,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || disabled}
       className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-50 ${cls}`}
     >
       <Icon className="w-4 h-4" />

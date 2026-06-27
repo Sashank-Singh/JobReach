@@ -17,3 +17,5 @@ htmlcov/
 *.egg-info/
 apps/web/.next/
 apps/web/node_modules/
+apps/web/.env.local
+services/job-api/.venv/

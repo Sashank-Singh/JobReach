@@ -36,7 +36,7 @@ services:
       DATABASE_URL_SYNC: postgresql://jobreach:jobreach@postgres:5432/jobreach
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:3000
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,7 +53,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://jobreach:jobreach@postgres:5432/jobreach
       DATABASE_URL_SYNC: postgresql://jobreach:jobreach@postgres:5432/jobreach
       REDIS_URL: redis://redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,7 +69,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://jobreach:jobreach@postgres:5432/jobreach
       DATABASE_URL_SYNC: postgresql://jobreach:jobreach@postgres:5432/jobreach
       REDIS_URL: redis://redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

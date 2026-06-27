@@ -1,18 +1,53 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { JobFiltersPanel } from "@/components/job-filters";
 import { JobCard } from "@/components/job-card";
 import { JobDetailPanel } from "@/components/job-detail";
 import { ResumeUploader } from "@/components/resume-uploader";
-import { Job, JobFilters, jobApi } from "@/lib/api";
-import { Briefcase } from "lucide-react";
+import { CompanyProfilePanel } from "@/components/company-profile";
+import { NotificationsPanel } from "@/components/notifications-panel";
+import { Job, JobFilters, jobApi, ResumeData } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { Briefcase, LogOut } from "lucide-react";
 
 export function JobDashboard() {
+  const { user, logout } = useAuth();
   const [filters, setFilters] = useState<JobFilters>({ page_size: 20 });
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [referralJobId, setReferralJobId] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  const [latestResume, setLatestResume] = useState<ResumeData | null>(null);
+
+  const { data: savedJobs } = useQuery({
+    queryKey: ["saved-jobs"],
+    queryFn: jobApi.getSavedJobs,
+  });
+
+  const { data: applications } = useQuery({
+    queryKey: ["applications"],
+    queryFn: jobApi.getApplications,
+  });
+
+  const { data: resume } = useQuery({
+    queryKey: ["resume"],
+    queryFn: jobApi.getLatestResume,
+  });
+
+  useEffect(() => {
+    if (savedJobs) setSavedIds(new Set(savedJobs.map((s) => s.job_id)));
+  }, [savedJobs]);
+
+  useEffect(() => {
+    if (applications) setAppliedIds(new Set(applications.map((a) => a.job_id)));
+  }, [applications]);
+
+  useEffect(() => {
+    if (resume) setLatestResume(resume);
+  }, [resume]);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = useInfiniteQuery({
     queryKey: ["jobs", filters],
@@ -21,7 +56,7 @@ export function JobDashboard() {
     initialPageParam: 1,
   });
 
-  const jobs = data?.pages.flatMap((p) => p.jobs) ?? [];
+  const jobs = useMemo(() => data?.pages.flatMap((p) => p.jobs) ?? [], [data]);
   const total = data?.pages[0]?.total ?? 0;
 
   const handleScroll = useCallback(
@@ -40,25 +75,30 @@ export function JobDashboard() {
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
-      {/* Left: Dev 1 territory */}
       <div className="w-72 shrink-0 flex flex-col border-r border-zinc-800">
         <div className="p-4 border-b border-zinc-800">
-          <div className="flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-emerald-500" />
-            <span className="font-bold">JobReach</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Dev 1</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-emerald-500" />
+              <span className="font-bold">JobReach</span>
+            </div>
+            <button onClick={logout} title="Sign out" className="text-zinc-500 hover:text-zinc-300">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
+          <p className="text-xs text-zinc-500 mt-1 truncate">{user?.name || user?.email}</p>
         </div>
         <ResumeUploader
-          onResumeUploaded={(id) => {
-            setFilters((f) => ({ ...f, resume_id: id }));
+          latestResume={latestResume}
+          onResumeUploaded={(r) => {
+            setLatestResume(r);
             refetch();
           }}
         />
         <JobFiltersPanel filters={filters} onChange={setFilters} />
+        <NotificationsPanel />
       </div>
 
-      {/* Job list */}
       <div className="w-96 shrink-0 flex flex-col border-r border-zinc-800">
         <div className="p-3 border-b border-zinc-800 text-sm text-zinc-400">
           {isLoading ? "Loading..." : `${total.toLocaleString()} jobs`}
@@ -78,15 +118,18 @@ export function JobDashboard() {
         </div>
       </div>
 
-      {/* Job detail */}
       <div className="flex-1 min-w-0">
         <JobDetailPanel
           job={selectedJob}
-          onReferralStart={(id) => setReferralJobId(id)}
+          savedJobIds={savedIds}
+          appliedJobIds={appliedIds}
+          onSaved={(id) => setSavedIds((s) => new Set(s).add(id))}
+          onApplied={(id) => setAppliedIds((s) => new Set(s).add(id))}
+          onReferralStart={setReferralJobId}
+          onCompanyClick={setCompanyId}
         />
       </div>
 
-      {/* Right panel placeholder — Dev 2 territory */}
       <div className="w-80 shrink-0 border-l border-zinc-800 bg-zinc-950/50 flex flex-col">
         <div className="p-4 border-b border-zinc-800">
           <span className="text-sm font-semibold text-zinc-400">Referral Pipeline</span>
@@ -97,16 +140,19 @@ export function JobDashboard() {
             <div className="space-y-2">
               <p className="text-sm text-violet-300">Referral handoff sent</p>
               <p className="text-xs text-zinc-500">
-                Job ID <code className="text-zinc-400">{referralJobId.slice(0, 8)}...</code> passed to Referral Service
+                Job ID <code className="text-zinc-400">{referralJobId.slice(0, 8)}...</code>
               </p>
+              <p className="text-xs text-zinc-600">User: {user?.id.slice(0, 8)}...</p>
             </div>
           ) : (
             <p className="text-xs text-zinc-600">
-              Click &quot;Add Referral&quot; on a job to hand off to Developer 2&apos;s service
+              Click &quot;Add Referral&quot; to hand off to Developer 2
             </p>
           )}
         </div>
       </div>
+
+      <CompanyProfilePanel companyId={companyId} onClose={() => setCompanyId(null)} />
     </div>
   );
 }

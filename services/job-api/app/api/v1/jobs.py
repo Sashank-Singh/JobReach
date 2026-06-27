@@ -1,22 +1,22 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.models import Company, NotificationLog, User
+from app.core.deps import get_current_user, get_optional_user
+from app.models import Application, Company, JobFilter, NotificationLog, Resume, SavedJob, User
 from app.schemas.job import (
     ApplicationResponse,
-    ApplyJobRequest,
     JobDetail,
     JobListResponse,
     JobSearchParams,
     NotificationItem,
     ReferralHandoff,
     ResumeResponse,
-    SaveJobRequest,
     SavedJobResponse,
 )
 from app.services.job_service import JobService
@@ -25,18 +25,24 @@ from app.services.resume_parser import ResumeParserService
 
 router = APIRouter(prefix="/api/v1", tags=["jobs"])
 
-# Demo user until shared auth is wired
-DEMO_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
+
+class ApplyBody(BaseModel):
+    notes: str | None = None
 
 
-async def ensure_demo_user(db: AsyncSession) -> User:
-    result = await db.execute(select(User).where(User.id == DEMO_USER_ID))
-    user = result.scalar_one_or_none()
-    if not user:
-        user = User(id=DEMO_USER_ID, email="dev1@jobreach.local", name="Developer 1")
-        db.add(user)
-        await db.commit()
-    return user
+class FilterCreate(BaseModel):
+    name: str
+    filters: dict
+    notify: bool = True
+
+
+class FilterOut(BaseModel):
+    id: UUID
+    name: str
+    filters: dict
+    notify: bool
+
+    model_config = {"from_attributes": True}
 
 
 @router.get("/health")
@@ -58,8 +64,14 @@ async def list_jobs(
     resume_id: UUID | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if resume_id is None and user:
+        latest = await _latest_resume_id(db, user.id)
+        if latest:
+            resume_id = latest
+
     params = JobSearchParams(
         keyword=keyword,
         company=company,
@@ -85,69 +97,103 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
     return job
 
 
-@router.post("/jobs/save", response_model=SavedJobResponse)
-async def save_job(body: SaveJobRequest, db: AsyncSession = Depends(get_db)):
-    saved = await JobService(db).save_job(body.user_id, body.job_id)
+@router.post("/jobs/{job_id}/save", response_model=SavedJobResponse)
+async def save_job(job_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    saved = await JobService(db).save_job(user.id, job_id)
     return saved
 
 
-@router.post("/jobs/apply", response_model=ApplicationResponse)
-async def apply_job(body: ApplyJobRequest, db: AsyncSession = Depends(get_db)):
-    app = await JobService(db).apply_to_job(body.user_id, body.job_id, body.notes)
+@router.post("/jobs/{job_id}/apply", response_model=ApplicationResponse)
+async def apply_job(
+    job_id: UUID,
+    body: ApplyBody = ApplyBody(),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    app = await JobService(db).apply_to_job(user.id, job_id, body.notes)
     return app
 
 
 @router.post("/jobs/{job_id}/referral-handoff", response_model=ReferralHandoff)
-async def referral_handoff(job_id: UUID, user_id: UUID = DEMO_USER_ID, db: AsyncSession = Depends(get_db)):
-    """Dev 1 → Dev 2 contract: only job_id crosses the boundary."""
+async def referral_handoff(job_id: UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     job = await JobService(db).get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return ReferralHandoff(job_id=job_id, user_id=user_id)
+    return ReferralHandoff(job_id=job_id, user_id=user.id)
+
+
+@router.get("/me/saved-jobs")
+async def my_saved_jobs(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(SavedJob).where(SavedJob.user_id == user.id).order_by(SavedJob.created_at.desc())
+    )
+    return [{"id": s.id, "job_id": s.job_id, "created_at": s.created_at} for s in result.scalars()]
+
+
+@router.get("/me/applications")
+async def my_applications(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Application).where(Application.user_id == user.id).order_by(Application.applied_at.desc())
+    )
+    return [
+        {"id": a.id, "job_id": a.job_id, "status": a.status, "applied_at": a.applied_at}
+        for a in result.scalars()
+    ]
+
+
+@router.get("/me/resume", response_model=ResumeResponse | None)
+async def my_latest_resume(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Resume).where(Resume.user_id == user.id).order_by(Resume.created_at.desc()).limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 @router.get("/companies/{company_id}")
 async def get_company(company_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Company)
-        .where(Company.id == company_id)
-        .options(selectinload(Company.jobs))
-    )
+    return await _company_payload(db, company_id=company_id)
+
+
+@router.get("/companies/slug/{slug}")
+async def get_company_by_slug(slug: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Company).where(Company.slug == slug))
     company = result.scalar_one_or_none()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
-    return {
-        "id": company.id,
-        "name": company.name,
-        "slug": company.slug,
-        "website": company.website,
-        "logo_url": company.logo_url,
-        "hiring_velocity": company.hiring_velocity,
-        "visa_sponsorship": company.visa_sponsorship,
-        "interview_difficulty": company.interview_difficulty,
-        "employee_count": company.employee_count,
-        "office_locations": company.office_locations,
-        "active_jobs": len([j for j in company.jobs if j.is_active]),
-    }
+    return await _company_payload(db, company=company)
 
 
 @router.post("/resume/upload", response_model=ResumeResponse)
 async def upload_resume(
     file: UploadFile = File(...),
-    user_id: UUID = DEMO_USER_ID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await ensure_demo_user(db)
     content = await file.read()
-    resume = await ResumeParserService(db).parse_and_store(user_id, file.filename or "resume.pdf", content)
+    resume = await ResumeParserService(db).parse_and_store(user.id, file.filename or "resume.pdf", content)
     return resume
 
 
+@router.get("/filters", response_model=list[FilterOut])
+async def list_filters(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(JobFilter).where(JobFilter.user_id == user.id))
+    return result.scalars().all()
+
+
+@router.post("/filters", response_model=FilterOut)
+async def create_filter(body: FilterCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    f = JobFilter(user_id=user.id, name=body.name, filters=body.filters, notify=body.notify)
+    db.add(f)
+    await db.commit()
+    await db.refresh(f)
+    return f
+
+
 @router.get("/notifications", response_model=list[NotificationItem])
-async def get_notifications(user_id: UUID = DEMO_USER_ID, db: AsyncSession = Depends(get_db)):
+async def get_notifications(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(NotificationLog)
-        .where(NotificationLog.user_id == user_id)
+        .where(NotificationLog.user_id == user.id)
         .order_by(NotificationLog.sent_at.desc())
         .limit(20)
     )
@@ -155,9 +201,45 @@ async def get_notifications(user_id: UUID = DEMO_USER_ID, db: AsyncSession = Dep
 
 
 @router.post("/notifications/digest")
-async def trigger_digest(user_id: UUID = DEMO_USER_ID, db: AsyncSession = Depends(get_db)):
-    await ensure_demo_user(db)
-    notification = await NotificationService(db).generate_morning_digest(user_id)
+async def trigger_digest(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    notification = await NotificationService(db).generate_morning_digest(user.id)
     if not notification:
         return {"message": "No new matching jobs"}
     return notification
+
+
+async def _latest_resume_id(db: AsyncSession, user_id: UUID) -> UUID | None:
+    result = await db.execute(
+        select(Resume.id).where(Resume.user_id == user_id).order_by(Resume.created_at.desc()).limit(1)
+    )
+    row = result.scalar_one_or_none()
+    return row
+
+
+async def _company_payload(db: AsyncSession, company_id: UUID | None = None, company: Company | None = None):
+    if company is None:
+        result = await db.execute(
+            select(Company).where(Company.id == company_id).options(selectinload(Company.jobs))
+        )
+        company = result.scalar_one_or_none()
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+    else:
+        result = await db.execute(select(Company).where(Company.id == company.id).options(selectinload(Company.jobs)))
+        company = result.scalar_one()
+
+    active_jobs = [j for j in company.jobs if j.is_active]
+    return {
+        "id": company.id,
+        "name": company.name,
+        "slug": company.slug,
+        "website": company.website,
+        "logo_url": company.logo_url,
+        "hiring_velocity": company.hiring_velocity or len(active_jobs),
+        "visa_sponsorship": company.visa_sponsorship,
+        "interview_difficulty": company.interview_difficulty,
+        "employee_count": company.employee_count,
+        "office_locations": company.office_locations or [],
+        "active_jobs": len(active_jobs),
+        "ats_type": company.ats_type,
+    }

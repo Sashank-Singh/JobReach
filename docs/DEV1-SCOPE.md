@@ -39,17 +39,17 @@ GET  /api/v1/notifications
 - `services/referral-api/` (Dev 2 — future)
 - Right panel referral UI logic (placeholder only; Dev 2 replaces)
 
-## Local Dev
+## Local Dev (No Docker)
 
 ```bash
-cp .env.example .env
-docker compose up --build
-# API: http://localhost:8000/docs
-# Web: http://localhost:3000
+./scripts/setup-local.sh   # first time
+./scripts/dev-local.sh
 ```
+
+See [LOCAL-DEV.md](LOCAL-DEV.md).
 
 ## Trigger job collection manually
 
 ```bash
-docker compose exec worker celery -A app.workers.celery_app call app.workers.tasks.collect_all_jobs
+./scripts/collect-jobs.sh
 ```

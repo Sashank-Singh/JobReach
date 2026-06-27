@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, MapPin, Sparkles } from "lucide-react";
+import { Building2, BadgeCheck, MapPin, Sparkles } from "lucide-react";
 import { Job } from "@/lib/api";
 
 interface Props {
@@ -10,7 +10,12 @@ interface Props {
 }
 
 export function JobCard({ job, selected, onClick }: Props) {
-  const location = job.locations[0]?.city || job.remote_type || "—";
+  const loc = job.locations[0];
+  const location =
+    loc?.country && loc?.city && !loc.city.toLowerCase().includes(loc.country.toLowerCase())
+      ? `${loc.city} · ${loc.country}`
+      : loc?.country || loc?.city || job.remote_type || "—";
+  const verified = Boolean(job.apply_url);
 
   return (
     <button
@@ -25,6 +30,11 @@ export function JobCard({ job, selected, onClick }: Props) {
           <div className="flex items-center gap-1.5 mt-1 text-sm text-zinc-400">
             <Building2 className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{job.company.name}</span>
+            {verified && (
+              <span title="Verified careers page">
+                <BadgeCheck className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-zinc-500">
             <MapPin className="w-3 h-3 shrink-0" />
