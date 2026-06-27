@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Resume
 from app.services.embedding_service import EmbeddingService
-from app.services.gemini_service import gemini_service
+from app.services.fireworks_service import fireworks_service
 
 RESUME_SYSTEM_PROMPT = (
     "Extract resume data as JSON with keys: skills (list of strings), experience (list of "
@@ -48,8 +48,8 @@ class ResumeParserService:
         return content.decode("utf-8", errors="ignore")
 
     async def _parse_structured(self, text: str) -> dict:
-        if gemini_service.enabled:
-            return await self._parse_with_gemini(text)
+        if fireworks_service.enabled:
+            return await self._parse_with_llm(text)
         return self._parse_heuristic(text)
 
     def _parse_heuristic(self, text: str) -> dict:
@@ -70,8 +70,8 @@ class ResumeParserService:
             "projects": [],
         }
 
-    async def _parse_with_gemini(self, text: str) -> dict:
+    async def _parse_with_llm(self, text: str) -> dict:
         try:
-            return await gemini_service.generate_json(RESUME_SYSTEM_PROMPT, text)
+            return await fireworks_service.generate_json(RESUME_SYSTEM_PROMPT, text)
         except Exception:
             return self._parse_heuristic(text)

@@ -26,14 +26,14 @@ export function ResumeUploader({ onResumeUploaded, latestResume }: Props) {
   const skills = latestResume?.parsed_data?.skills ?? [];
 
   return (
-    <div className="p-3 border-b border-zinc-800 space-y-2">
+    <div className="px-4 py-3 border-b border-default space-y-2.5">
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg border border-dashed border-zinc-700 text-zinc-400 hover:border-emerald-600 hover:text-emerald-400 transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm btn-secondary disabled:opacity-50"
       >
-        <Upload className="w-4 h-4" />
-        {uploading ? "Parsing resume..." : "Upload resume for AI matching"}
+        <Upload className="w-4 h-4 text-muted" />
+        {uploading ? "Uploading…" : "Upload resume"}
       </button>
       <input
         ref={inputRef}
@@ -44,10 +44,10 @@ export function ResumeUploader({ onResumeUploaded, latestResume }: Props) {
       />
       {skills.length > 0 && (
         <div>
-          <p className="text-[10px] text-zinc-500 mb-1">Your skills</p>
+          <p className="text-xs text-muted mb-1.5">Skills from resume</p>
           <div className="flex flex-wrap gap-1">
             {skills.slice(0, 8).map((s) => (
-              <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+              <span key={s} className="chip">
                 {s}
               </span>
             ))}

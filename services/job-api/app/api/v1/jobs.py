@@ -90,8 +90,17 @@ async def list_jobs(
 
 
 @router.get("/jobs/{job_id}", response_model=JobDetail)
-async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
-    job = await JobService(db).get_job(job_id)
+async def get_job(
+    job_id: UUID,
+    resume_id: UUID | None = None,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if resume_id is None and user:
+        latest = await _latest_resume_id(db, user.id)
+        if latest:
+            resume_id = latest
+    job = await JobService(db).get_job(job_id, resume_id=resume_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job

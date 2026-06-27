@@ -47,8 +47,12 @@ class JobIngestionService:
                 session.add(Company(**seed))
             else:
                 for key, val in seed.items():
+                    if key == "visa_sponsorship":
+                        continue
                     if val is not None and getattr(existing, key, None) in (None, ""):
                         setattr(existing, key, val)
+                if "visa_sponsorship" in seed:
+                    existing.visa_sponsorship = seed["visa_sponsorship"]
         session.flush()
 
     def _ingest_company(self, session: Session, company: Company) -> tuple[int, int]:
@@ -73,7 +77,7 @@ class JobIngestionService:
             ).scalar_one_or_none()
 
             if existing:
-                self._update_job(existing, raw)
+                self._update_job(existing, raw, company)
                 updated += 1
                 job = existing
             else:
@@ -98,7 +102,9 @@ class JobIngestionService:
             department=raw.department,
             experience_level=experience,
             remote_type=remote,
-            visa_sponsorship=raw.visa_sponsorship or company.visa_sponsorship,
+            visa_sponsorship=raw.visa_sponsorship
+            if raw.visa_sponsorship is not None
+            else company.visa_sponsorship,
             apply_url=raw.apply_url,
             posted_at=raw.posted_at,
             source=source,
@@ -108,7 +114,7 @@ class JobIngestionService:
         self._sync_relations(session, job, raw)
         return job
 
-    def _update_job(self, job: Job, raw) -> None:
+    def _update_job(self, job: Job, raw, company: Company) -> None:
         desc_html, desc_plain = normalize_job_description(raw.description)
         loc_name = raw.locations[0].get("city") if raw.locations else None
         job.title = raw.title
@@ -117,6 +123,9 @@ class JobIngestionService:
         job.department = raw.department
         job.experience_level = raw.experience_level or infer_experience_level(raw.title)
         job.remote_type = raw.remote_type or infer_remote_type(loc_name, raw.title)
+        job.visa_sponsorship = (
+            raw.visa_sponsorship if raw.visa_sponsorship is not None else company.visa_sponsorship
+        )
         job.apply_url = raw.apply_url
         job.posted_at = raw.posted_at
         job.is_active = True

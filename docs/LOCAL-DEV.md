@@ -88,9 +88,9 @@ DATABASE_URL_SYNC=postgresql://jobreach:jobreach@localhost:5432/jobreach
 REDIS_URL=redis://localhost:6379/0
 CORS_ORIGINS=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:8000
-GEMINI_API_KEY=your-key-here
-GEMINI_EMBEDDING_MODEL=text-embedding-004
-GEMINI_CHAT_MODEL=gemini-2.0-flash
+FIREWORKS_API_KEY=your-key-here
+FIREWORKS_EMBEDDING_MODEL=accounts/fireworks/models/qwen3-embedding-8b
+FIREWORKS_CHAT_MODEL=accounts/fireworks/models/minimax-m3
 ```
 
 Frontend reads `apps/web/.env.local` (auto-created by setup/dev scripts).

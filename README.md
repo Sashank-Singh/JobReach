@@ -74,4 +74,4 @@ JobReach/
 3. Deploy Redis
 4. Deploy `services/job-api` from GitHub (Dockerfile)
 5. Deploy `apps/web` from GitHub (Dockerfile)
-6. Set env vars: `DATABASE_URL`, `REDIS_URL`, `GEMINI_API_KEY`, `NEXT_PUBLIC_API_URL`
+6. Set env vars: `DATABASE_URL`, `REDIS_URL`, `FIREWORKS_API_KEY`, `NEXT_PUBLIC_API_URL`

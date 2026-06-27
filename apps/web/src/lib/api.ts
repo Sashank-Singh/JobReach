@@ -26,6 +26,7 @@ export interface JobListResponse {
   page: number;
   page_size: number;
   has_more: boolean;
+  sorted_by_match?: boolean;
 }
 
 export interface JobFilters {

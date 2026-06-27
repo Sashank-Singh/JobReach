@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { JobFiltersPanel } from "@/components/job-filters";
 import { JobCard } from "@/components/job-card";
@@ -8,12 +8,14 @@ import { JobDetailPanel } from "@/components/job-detail";
 import { ResumeUploader } from "@/components/resume-uploader";
 import { CompanyProfilePanel } from "@/components/company-profile";
 import { NotificationsPanel } from "@/components/notifications-panel";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Job, JobFilters, jobApi, ResumeData } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Briefcase, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 export function JobDashboard() {
   const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<JobFilters>({ page_size: 20 });
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [referralJobId, setReferralJobId] = useState<string | null>(null);
@@ -49,15 +51,23 @@ export function JobDashboard() {
     if (resume) setLatestResume(resume);
   }, [resume]);
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = useInfiniteQuery({
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
     queryKey: ["jobs", filters],
     queryFn: ({ pageParam = 1 }) => jobApi.listJobs({ ...filters, page: pageParam }),
     getNextPageParam: (last) => (last.has_more ? last.page + 1 : undefined),
     initialPageParam: 1,
   });
 
-  const jobs = useMemo(() => data?.pages.flatMap((p) => p.jobs) ?? [], [data]);
+  const jobs = useMemo(() => {
+    const seen = new Set<string>();
+    return (data?.pages.flatMap((p) => p.jobs) ?? []).filter((job) => {
+      if (seen.has(job.id)) return false;
+      seen.add(job.id);
+      return true;
+    });
+  }, [data]);
   const total = data?.pages[0]?.total ?? 0;
+  const sortedByMatch = data?.pages[0]?.sorted_by_match ?? false;
 
   const handleScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
@@ -74,34 +84,42 @@ export function JobDashboard() {
   }, [jobs, selectedJob]);
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100">
-      <div className="w-72 shrink-0 flex flex-col border-r border-zinc-800">
-        <div className="p-4 border-b border-zinc-800">
+    <div className="flex h-screen app-shell">
+      <aside className="w-72 shrink-0 flex flex-col border-r border-default bg-subtle">
+        <header className="px-4 py-3 border-b border-default">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Briefcase className="w-5 h-5 text-emerald-500" />
-              <span className="font-bold">JobReach</span>
+            <div>
+              <p className="text-sm font-semibold text-primary tracking-tight">JobReach</p>
+              <p className="text-xs text-muted mt-0.5 truncate">{user?.name || user?.email}</p>
             </div>
-            <button onClick={logout} title="Sign out" className="text-zinc-500 hover:text-zinc-300">
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <ThemeToggle />
+              <button onClick={logout} title="Sign out" className="p-1.5 rounded-md text-muted hover:text-primary hover:bg-muted transition-colors">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-zinc-500 mt-1 truncate">{user?.name || user?.email}</p>
-        </div>
+        </header>
         <ResumeUploader
           latestResume={latestResume}
           onResumeUploaded={(r) => {
             setLatestResume(r);
-            refetch();
+            queryClient.invalidateQueries({ queryKey: ["resume"] });
+            queryClient.invalidateQueries({ queryKey: ["jobs"] });
           }}
         />
         <JobFiltersPanel filters={filters} onChange={setFilters} />
         <NotificationsPanel />
-      </div>
+      </aside>
 
-      <div className="w-96 shrink-0 flex flex-col border-r border-zinc-800">
-        <div className="p-3 border-b border-zinc-800 text-sm text-zinc-400">
-          {isLoading ? "Loading..." : `${total.toLocaleString()} jobs`}
+      <section className="w-[22rem] shrink-0 flex flex-col border-r border-default bg-surface">
+        <div className="px-4 py-3 border-b border-default flex items-center justify-between gap-2">
+          <span className="text-sm text-secondary">
+            {isLoading ? "Loading…" : `${total.toLocaleString()} openings`}
+          </span>
+          {sortedByMatch && latestResume && (
+            <span className="text-xs text-muted shrink-0">Best matches first</span>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
           {jobs.map((job) => (
@@ -113,12 +131,12 @@ export function JobDashboard() {
             />
           ))}
           {isFetchingNextPage && (
-            <div className="p-4 text-center text-xs text-zinc-500">Loading more...</div>
+            <div className="p-4 text-center text-xs text-muted">Loading more…</div>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 bg-surface">
         <JobDetailPanel
           job={selectedJob}
           savedJobIds={savedIds}
@@ -128,29 +146,28 @@ export function JobDashboard() {
           onReferralStart={setReferralJobId}
           onCompanyClick={setCompanyId}
         />
-      </div>
+      </main>
 
-      <div className="w-80 shrink-0 border-l border-zinc-800 bg-zinc-950/50 flex flex-col">
-        <div className="p-4 border-b border-zinc-800">
-          <span className="text-sm font-semibold text-zinc-400">Referral Pipeline</span>
-          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400">Dev 2</span>
+      <aside className="w-72 shrink-0 border-l border-default bg-subtle flex flex-col">
+        <div className="px-4 py-3 border-b border-default">
+          <p className="text-sm font-medium text-secondary">Referrals</p>
+          <p className="text-xs text-muted mt-0.5">Warm introductions</p>
         </div>
         <div className="flex-1 flex items-center justify-center p-6 text-center">
           {referralJobId ? (
             <div className="space-y-2">
-              <p className="text-sm text-violet-300">Referral handoff sent</p>
-              <p className="text-xs text-zinc-500">
-                Job ID <code className="text-zinc-400">{referralJobId.slice(0, 8)}...</code>
+              <p className="text-sm text-primary font-medium">Request sent</p>
+              <p className="text-xs text-muted">
+                Job ref. <span className="font-mono text-secondary">{referralJobId.slice(0, 8)}</span>
               </p>
-              <p className="text-xs text-zinc-600">User: {user?.id.slice(0, 8)}...</p>
             </div>
           ) : (
-            <p className="text-xs text-zinc-600">
-              Click &quot;Add Referral&quot; to hand off to Developer 2
+            <p className="text-xs text-muted leading-relaxed">
+              Select a role and choose &ldquo;Request referral&rdquo; to start an introduction.
             </p>
           )}
         </div>
-      </div>
+      </aside>
 
       <CompanyProfilePanel companyId={companyId} onClose={() => setCompanyId(null)} />
     </div>

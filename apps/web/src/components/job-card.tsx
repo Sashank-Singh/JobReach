@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, BadgeCheck, MapPin, Sparkles } from "lucide-react";
+import { BadgeCheck, MapPin } from "lucide-react";
 import { Job } from "@/lib/api";
 
 interface Props {
@@ -13,48 +13,42 @@ export function JobCard({ job, selected, onClick }: Props) {
   const loc = job.locations[0];
   const location =
     loc?.country && loc?.city && !loc.city.toLowerCase().includes(loc.country.toLowerCase())
-      ? `${loc.city} · ${loc.country}`
+      ? `${loc.city}, ${loc.country}`
       : loc?.country || loc?.city || job.remote_type || "—";
   const verified = Boolean(job.apply_url);
 
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left p-4 border-b border-zinc-800/80 transition-colors hover:bg-zinc-900/60 ${
-        selected ? "bg-zinc-900 border-l-2 border-l-emerald-500" : ""
+      className={`w-full text-left px-4 py-3.5 border-b border-default transition-colors hover-surface ${
+        selected ? "bg-muted border-l-2 border-l-[var(--accent)]" : "border-l-2 border-l-transparent"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="font-medium text-zinc-100 truncate">{job.title}</h3>
-          <div className="flex items-center gap-1.5 mt-1 text-sm text-zinc-400">
-            <Building2 className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{job.company.name}</span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium text-primary truncate leading-snug">{job.title}</h3>
+          <p className="mt-1 text-sm text-secondary truncate">
+            {job.company.name}
             {verified && (
-              <span title="Verified careers page">
-                <BadgeCheck className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-              </span>
+              <BadgeCheck className="inline w-3.5 h-3.5 ml-1 -mt-0.5 text-accent align-middle" title="Verified listing" />
             )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-zinc-500">
+          </p>
+          <div className="flex items-center gap-1.5 mt-1 text-xs text-muted">
             <MapPin className="w-3 h-3 shrink-0" />
-            <span>{location}</span>
+            <span className="truncate">{location}</span>
             {job.remote_type && (
-              <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 capitalize">{job.remote_type}</span>
+              <span className="chip capitalize shrink-0">{job.remote_type}</span>
             )}
           </div>
         </div>
         {job.match_score != null && (
-          <div className="flex items-center gap-1 shrink-0 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold">
-            <Sparkles className="w-3 h-3" />
-            {job.match_score}%
-          </div>
+          <span className="match-badge shrink-0">{Math.round(job.match_score)}%</span>
         )}
       </div>
       {job.skills.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
+        <div className="flex flex-wrap gap-1 mt-2.5">
           {job.skills.slice(0, 4).map((s) => (
-            <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+            <span key={s} className="chip">
               {s}
             </span>
           ))}

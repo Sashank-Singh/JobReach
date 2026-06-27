@@ -31,7 +31,7 @@ curl "http://localhost:8000/api/v1/jobs?page_size=5"
 
 | # | Task | Why |
 |---|------|-----|
-| 6 | Add `GEMINI_API_KEY` to `.env` | Real embeddings beat hash fallback |
+| 6 | Add `FIREWORKS_API_KEY` to `.env` | Real embeddings beat hash fallback |
 | 7 | Backfill job embeddings on collect | Every new job gets embedded |
 | 8 | Resume upload UX | Show parsed skills + "matching..." state |
 | 9 | Match score in UI | Already wired — needs embeddings populated |

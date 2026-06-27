@@ -55,7 +55,7 @@ class JobListItem(BaseModel):
     posted_at: datetime | None = None
     apply_url: str | None = None
     source: str
-    match_score: float | None = None
+    match_score: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -71,6 +71,7 @@ class JobListResponse(BaseModel):
     page: int
     page_size: int
     has_more: bool
+    sorted_by_match: bool = False
 
 
 class JobSearchParams(BaseModel):

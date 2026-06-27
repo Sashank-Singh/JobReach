@@ -16,8 +16,8 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+      <div className="h-screen app-shell flex items-center justify-center">
+        <Loader2 className="w-5 h-5 text-accent animate-spin" />
       </div>
     );
   }

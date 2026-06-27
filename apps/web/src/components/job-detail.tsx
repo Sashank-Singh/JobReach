@@ -34,12 +34,15 @@ export function JobDetailPanel({
       return;
     }
     setDetail(job);
-    jobApi.getJob(job.id).then(setDetail).catch(() => setDetail(job));
+    jobApi
+      .getJob(job.id)
+      .then((d) => setDetail({ ...d, match_score: d.match_score ?? job.match_score }))
+      .catch(() => setDetail(job));
   }, [job]);
 
   if (!job || !detail) {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
+      <div className="flex items-center justify-center h-full text-muted text-sm">
         Select a job to view details
       </div>
     );
@@ -82,21 +85,23 @@ export function JobDetailPanel({
   return (
     <div className="h-full overflow-y-auto p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-100">{detail.title}</h1>
+        <h1 className="text-xl font-semibold text-primary leading-tight">{detail.title}</h1>
         <button
           onClick={() => onCompanyClick(detail.company.id)}
-          className="text-zinc-400 mt-1 hover:text-emerald-400 transition-colors"
+          className="text-secondary text-sm mt-1 hover:text-accent transition-colors"
         >
-          {detail.company.name} →
+          {detail.company.name}
         </button>
         {detail.match_score != null && (
-          <p className="text-emerald-400 text-sm mt-2 font-medium">{detail.match_score}% AI match</p>
+          <p className="text-sm mt-2 text-secondary">
+            Match score: <span className="font-semibold text-primary">{Math.round(detail.match_score)}%</span>
+          </p>
         )}
-        {posted && <p className="text-xs text-zinc-500 mt-1">Posted {posted}</p>}
+        {posted && <p className="text-xs text-muted mt-1">Posted {posted}</p>}
         {detail.apply_url && (
-          <p className="flex items-center gap-1 text-xs text-emerald-500/80 mt-1">
-            <BadgeCheck className="w-3.5 h-3.5" />
-            Verified listing · applies on {detail.company.name}&apos;s careers page
+          <p className="flex items-center gap-1 text-xs text-muted mt-1">
+            <BadgeCheck className="w-3.5 h-3.5 text-accent" />
+            Verified listing on {detail.company.name}&apos;s careers site
           </p>
         )}
       </div>
@@ -121,7 +126,7 @@ export function JobDetailPanel({
         />
         <ActionButton
           icon={UserPlus}
-          label="Add Referral"
+          label="Request referral"
           loading={loading === "referral"}
           onClick={() => action("referral")}
           accent
@@ -131,7 +136,7 @@ export function JobDetailPanel({
             href={detail.apply_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md btn-secondary"
           >
             <ExternalLink className="w-4 h-4" />
             External Apply
@@ -152,10 +157,10 @@ export function JobDetailPanel({
 
       {detail.skills.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Skills</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted mb-2">Skills</h3>
           <div className="flex flex-wrap gap-1.5">
             {detail.skills.map((s) => (
-              <span key={s} className="px-2 py-1 rounded-md bg-zinc-800 text-zinc-300 text-xs">
+              <span key={s} className="chip">
                 {s}
               </span>
             ))}
@@ -165,7 +170,7 @@ export function JobDetailPanel({
 
       {detail.description && (
         <div className="mt-6">
-          <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-3 font-semibold">Description</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted mb-3">Description</h3>
           <JobDescription html={detail.description} />
         </div>
       )}
@@ -191,16 +196,16 @@ function ActionButton({
   disabled?: boolean;
 }) {
   const cls = accent
-    ? "bg-violet-600 hover:bg-violet-500 text-white"
+    ? "btn-primary bg-[var(--accent)]"
     : primary
-      ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-      : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800";
+      ? "btn-primary"
+      : "btn-secondary";
 
   return (
     <button
       onClick={onClick}
       disabled={loading || disabled}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-50 ${cls}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${cls}`}
     >
       <Icon className="w-4 h-4" />
       {loading ? "..." : label}
@@ -210,9 +215,9 @@ function ActionButton({
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800">
-      <div className="text-xs text-zinc-500">{label}</div>
-      <div className="text-zinc-200 capitalize mt-0.5">{value}</div>
+    <div className="meta-card">
+      <div className="text-xs text-muted">{label}</div>
+      <div className="text-sm text-primary capitalize mt-0.5">{value}</div>
     </div>
   );
 }

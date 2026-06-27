@@ -20,11 +20,11 @@ class Settings(BaseSettings):
     database_url_sync: str = "postgresql://jobreach:jobreach@localhost:5432/jobreach"
     redis_url: str = "redis://localhost:6379/0"
     cors_origins: str = "http://localhost:3000"
-    gemini_api_key: str = ""
-    gemini_embedding_model: str = "text-embedding-004"
-    gemini_chat_model: str = "gemini-2.0-flash"
+    fireworks_api_key: str = ""
+    fireworks_embedding_model: str = "accounts/fireworks/models/qwen3-embedding-8b"
+    fireworks_chat_model: str = "accounts/fireworks/models/minimax-m3"
     job_collector_interval_hours: int = 1
-    embedding_model: str = "text-embedding-004"
+    embedding_model: str = "accounts/fireworks/models/qwen3-embedding-8b"
     embedding_dimensions: int = 768
     jwt_secret: str = "change-me-in-production-jobreach-secret-key"
     jwt_expire_days: int = 30

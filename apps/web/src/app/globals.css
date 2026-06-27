@@ -1,70 +1,235 @@
 @import "tailwindcss";
 
-:root {
-  --background: #09090b;
-  --foreground: #fafafa;
+:root,
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-muted: #f1f5f9;
+  --surface: #ffffff;
+  --surface-hover: #f8fafc;
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-subtle: #f0fdfa;
+  --accent-text: #0f766e;
+  --danger: #dc2626;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="dark"] {
+  --bg: #0c0c0e;
+  --bg-subtle: #111114;
+  --bg-muted: #18181b;
+  --surface: #111114;
+  --surface-hover: #18181b;
+  --border: #27272a;
+  --border-subtle: #1f1f23;
+  --text: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --accent: #14b8a6;
+  --accent-hover: #2dd4bf;
+  --accent-subtle: rgba(20, 184, 166, 0.1);
+  --accent-text: #5eead4;
+  --danger: #f87171;
+  --shadow: none;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-shell {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.bg-subtle {
+  background: var(--bg-subtle);
+}
+
+.bg-muted {
+  background: var(--bg-muted);
+}
+
+.bg-surface {
+  background: var(--surface);
+}
+
+.border-default {
+  border-color: var(--border);
+}
+
+.text-primary {
+  color: var(--text);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-accent {
+  color: var(--accent-text);
+}
+
+.hover-surface:hover {
+  background: var(--surface-hover);
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.input-field::placeholder {
+  color: var(--text-muted);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  transition: background 0.15s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.chip {
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+}
+
+.match-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  border: 1px solid var(--border);
+}
+
+.meta-card {
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
 }
 
 .job-description {
-  @apply text-sm text-zinc-300 leading-relaxed;
+  font-size: 0.875rem;
+  line-height: 1.625;
+  color: var(--text-secondary);
 }
 
 .job-description h1,
 .job-description h2 {
-  @apply text-base font-bold text-zinc-100 mt-6 mb-2 first:mt-0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.job-description h1:first-child,
+.job-description h2:first-child {
+  margin-top: 0;
 }
 
 .job-description h3,
 .job-description h4 {
-  @apply text-sm font-semibold text-zinc-100 mt-4 mb-1.5;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 1rem;
+  margin-bottom: 0.375rem;
 }
 
 .job-description p {
-  @apply mb-3 text-zinc-300 leading-relaxed;
+  margin-bottom: 0.75rem;
 }
 
 .job-description strong,
 .job-description b {
-  @apply font-semibold text-zinc-100;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .job-description ul,
 .job-description ol {
-  @apply mb-4 pl-5 space-y-1.5;
+  margin-bottom: 1rem;
+  padding-left: 1.25rem;
 }
 
 .job-description ul {
-  @apply list-disc;
+  list-style-type: disc;
 }
 
 .job-description ol {
-  @apply list-decimal;
+  list-style-type: decimal;
 }
 
 .job-description li {
-  @apply text-zinc-300 leading-relaxed;
+  margin-bottom: 0.25rem;
 }
 
 .job-description a {
-  @apply text-emerald-400 underline underline-offset-2 hover:text-emerald-300;
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-.job-description br {
-  @apply block content-[''] mb-1;
-}
-
-.input-field {
-  @apply w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500;
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow);
 }

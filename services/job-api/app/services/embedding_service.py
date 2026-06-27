@@ -1,11 +1,11 @@
 from app.core.config import settings
-from app.services.gemini_service import gemini_service
+from app.services.fireworks_service import fireworks_service
 
 
 class EmbeddingService:
     async def embed_text(self, text: str) -> list[float] | None:
-        if gemini_service.enabled and text.strip():
-            embedding = await gemini_service.embed_text(text, task_type="RETRIEVAL_DOCUMENT")
+        if fireworks_service.enabled and text.strip():
+            embedding = await fireworks_service.embed_text(text, task_type="RETRIEVAL_DOCUMENT")
             if embedding:
                 return embedding
 
@@ -15,14 +15,14 @@ class EmbeddingService:
 
     async def embed_query(self, text: str) -> list[float] | None:
         """Resume / search queries use RETRIEVAL_QUERY task type."""
-        if gemini_service.enabled and text.strip():
-            embedding = await gemini_service.embed_text(text, task_type="RETRIEVAL_QUERY")
+        if fireworks_service.enabled and text.strip():
+            embedding = await fireworks_service.embed_text(text, task_type="RETRIEVAL_QUERY")
             if embedding:
                 return embedding
         return await self.embed_text(text)
 
     def _fallback_embedding(self, text: str) -> list[float]:
-        """Deterministic hash-based embedding when no Gemini API key is set."""
+        """Deterministic hash-based embedding when no Fireworks API key is set."""
         dim = settings.embedding_dimensions
         vec = [0.0] * dim
         tokens = text.lower().split()
