@@ -7,3 +7,13 @@ build/
 .next/
 .DS_Store
 *.log
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+apps/web/.next/
+apps/web/node_modules/
