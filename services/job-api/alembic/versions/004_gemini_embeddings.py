@@ -1,4 +1,4 @@
-"""Switch embeddings from OpenAI 1536-dim to Gemini 768-dim
+"""Switch embeddings to Gemini 768-dim
 
 Revision ID: 004
 """

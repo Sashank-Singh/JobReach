@@ -62,14 +62,30 @@ async function collectWithRetries(context = {}) {
 
   if (candidates.length === 0) return { count: 0 };
 
-  chrome.runtime.sendMessage(
-    {
-      type: "JOBREACH_LINKEDIN_CANDIDATES",
-      payload: { candidates },
-    },
-    () => {}
-  );
-  return { count: candidates.length };
+  const sync = await syncCandidates(candidates);
+  return { count: candidates.length, sync };
+}
+
+function syncCandidates(candidates) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        type: "JOBREACH_LINKEDIN_CANDIDATES",
+        payload: { candidates },
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (!response?.ok) {
+          reject(new Error(response?.error || "Candidate sync failed"));
+          return;
+        }
+        resolve(response.result || response);
+      }
+    );
+  });
 }
 
 function collectCandidates(context = {}) {

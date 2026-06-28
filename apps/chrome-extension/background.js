@@ -28,14 +28,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "JOBREACH_START_REFERRAL") {
     startReferralFlow(message.payload)
       .then((result) => sendResponse({ ok: true, result }))
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
+      .catch(async (error) => {
+        await notifyWebTabs(`Referral extension failed: ${error.message}`);
+        sendResponse({ ok: false, error: error.message });
+      });
     return true;
   }
 
   if (message?.type === "JOBREACH_LINKEDIN_CANDIDATES") {
     postCandidates(message.payload)
       .then((result) => sendResponse({ ok: true, result }))
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
+      .catch(async (error) => {
+        await notifyWebTabs(`Candidate sync failed: ${error.message}`);
+        sendResponse({ ok: false, error: error.message });
+      });
     return true;
   }
 
@@ -53,11 +59,26 @@ async function startReferralFlow(payload) {
   const url = JobReachExtensionUtils.buildLinkedInPeopleSearchUrl(payload.companyName, payload.jobTitle);
   const tab = await chrome.tabs.create({ url, active: true });
   await waitForTabComplete(tab.id);
-  await chrome.tabs.sendMessage(tab.id, {
+  const response = await chrome.tabs.sendMessage(tab.id, {
     type: "JOBREACH_COLLECT_CANDIDATES",
     payload,
-  }).catch(() => {});
-  return { tabId: tab.id, url };
+  });
+
+  if (!response?.ok) {
+    const reason = response?.error || "LinkedIn candidate collection did not respond";
+    await reportExtensionEvent("candidate_collection_failed", {
+      campaignId: payload.campaignId,
+      error: reason,
+    });
+    throw new Error(reason);
+  }
+
+  if (!response.count) {
+    await reportExtensionEvent("no_linkedin_candidates_found", { campaignId: payload.campaignId });
+    await notifyWebTabs("No LinkedIn candidates found on the search results page.");
+  }
+
+  return { tabId: tab.id, url, candidates: response.count };
 }
 
 async function postCandidates(payload) {
@@ -66,8 +87,13 @@ async function postCandidates(payload) {
     "referralApiUrl",
   ]);
   const token = activeCampaign?.token;
+  const candidates = payload?.candidates;
   if (!activeCampaign?.campaignId) throw new Error("No active JobReach campaign");
   if (!token) throw new Error("Missing JobReach auth token");
+  if (!Array.isArray(candidates)) throw new Error("Missing LinkedIn candidates payload");
+  if (candidates.length === 0) throw new Error("LinkedIn candidates payload is empty");
+
+  await notifyWebTabs(`Syncing ${candidates.length} LinkedIn candidates.`);
 
   const response = await fetch(`${referralApiUrl}/referrals/${activeCampaign.campaignId}/candidates`, {
     method: "POST",
@@ -75,7 +101,7 @@ async function postCandidates(payload) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ candidates: payload.candidates }),
+    body: JSON.stringify({ candidates }),
   });
 
   if (!response.ok) {

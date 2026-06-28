@@ -16,8 +16,6 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     job_api_url: str = "http://localhost:8000"
     jwt_secret: str = "change-me-in-production-jobreach-secret-key"
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
     daily_linkedin_send_limit: int = 20
 
     @property

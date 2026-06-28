@@ -214,7 +214,6 @@ SKILLS_CATALOG: list[dict] = [
     {"name": "LlamaIndex", "category": "ml"},
     {"name": "RAG", "category": "ml"},
     {"name": "Retrieval Augmented Generation", "category": "ml"},
-    {"name": "OpenAI API", "category": "ml"},
     {"name": "Claude API", "category": "ml"},
     {"name": "Anthropic API", "category": "ml"},
     {"name": "Weights & Biases", "category": "ml"},

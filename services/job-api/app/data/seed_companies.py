@@ -17,7 +17,6 @@ SEED_COMPANIES = [
     {"name": "Robinhood", "slug": "robinhood", "ats_type": "greenhouse", "ats_board_token": "robinhood", "website": "https://robinhood.com", "visa_sponsorship": True},
     {"name": "Notion", "slug": "notion", "ats_type": "ashby", "ats_board_token": "notion", "website": "https://notion.so", "visa_sponsorship": True},
     {"name": "Linear", "slug": "linear", "ats_type": "ashby", "ats_board_token": "linear", "website": "https://linear.app", "visa_sponsorship": True},
-    {"name": "OpenAI", "slug": "openai", "ats_type": "ashby", "ats_board_token": "openai", "website": "https://openai.com", "visa_sponsorship": True},
     {"name": "Ramp", "slug": "ramp", "ats_type": "ashby", "ats_board_token": "ramp", "website": "https://ramp.com", "visa_sponsorship": True},
     {"name": "Anthropic", "slug": "anthropic", "ats_type": "ashby", "ats_board_token": "anthropic", "website": "https://anthropic.com", "visa_sponsorship": True},
     {"name": "Vercel", "slug": "vercel", "ats_type": "ashby", "ats_board_token": "vercel", "website": "https://vercel.com", "visa_sponsorship": True},
