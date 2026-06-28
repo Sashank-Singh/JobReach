@@ -109,12 +109,12 @@ async function postCandidates(payload) {
     throw new Error(error.detail || `Candidate sync failed: ${response.status}`);
   }
 
-  const candidates = await response.json();
+  const syncedCandidates = await response.json();
   await reportExtensionEvent("candidates_synced", {
     campaignId: activeCampaign.campaignId,
-    count: candidates.length,
+    count: syncedCandidates.length,
   });
-  await notifyWebTabs(`Synced ${candidates.length} LinkedIn candidates.`);
+  await notifyWebTabs(`Synced ${syncedCandidates.length} LinkedIn candidates.`);
   const tasks = await createOutreachPlan(referralApiUrl, token, activeCampaign.campaignId);
   await reportExtensionEvent("outreach_plan_created", {
     campaignId: activeCampaign.campaignId,
@@ -122,7 +122,7 @@ async function postCandidates(payload) {
   });
   await notifyWebTabs(`Queued ${tasks.length} outreach messages.`);
   await runSendTasks(referralApiUrl, token, tasks);
-  return { candidates, tasks: tasks.length };
+  return { candidates: syncedCandidates, tasks: tasks.length };
 }
 
 async function createOutreachPlan(referralApiUrl, token, campaignId) {

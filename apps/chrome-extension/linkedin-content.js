@@ -151,11 +151,10 @@ async function sendOutreach(payload) {
   if (!body) throw new Error("Missing outreach body");
   if (isSecurityCheckpoint()) throw manualRequired("LinkedIn security checkpoint or login prompt detected");
 
+  const connectResult = await tryConnectWithNote(body);
+  if (connectResult) return connectResult;
   if (await tryDirectMessage(body)) {
     return { method: "message" };
-  }
-  if (await tryConnectWithNote(body)) {
-    return { method: "connect_note" };
   }
 
   throw manualRequired("No usable Message or Connect flow found");
@@ -187,35 +186,41 @@ async function tryConnectWithNote(body) {
     await sleep(500);
   }
 
-  const menuConnect = findButtonByText(["Connect"]);
+  const menuConnect = await waitForButton(["Connect"], 1500);
   if (!menuConnect) return false;
   menuConnect.click();
   await sleep(1000);
 
-  const addNoteButton = findButtonByText(["Add a note", "Add note"]);
+  const addNoteButton = await waitForButton(["Add a note", "Add note"], 2000);
   if (addNoteButton) {
     addNoteButton.click();
     await sleep(700);
   }
 
-  const noteBox = findTextBox() || document.querySelector("textarea[name='message']");
-  if (noteBox) {
-    setEditableText(noteBox, body.slice(0, 295));
-    await sleep(400);
+  const noteBox = await waitForTextBox(2000);
+  if (!noteBox) {
+    throw manualRequired("Connect flow opened, but no Add note text box was found");
   }
 
-  const sendButton = findButtonByText(["Send", "Send invitation"]);
+  setEditableText(noteBox, body.slice(0, 295));
+  await sleep(400);
+
+  const sendButton = await waitForButton(["Send", "Send invitation"], 1500);
   if (!sendButton || sendButton.disabled) return false;
   sendButton.click();
   await sleep(800);
-  return true;
+  return { method: "connect_note" };
 }
 
 function findButtonByText(labels) {
   const buttons = Array.from(document.querySelectorAll("button, [role='button']"));
   return buttons.find((button) => {
-    return JobReachExtensionUtils.matchesButtonLabel(button.textContent, labels);
+    return isUsableElement(button) && JobReachExtensionUtils.matchesButtonLabel(button.textContent, labels);
   });
+}
+
+async function waitForButton(labels, timeoutMs) {
+  return waitFor(() => findButtonByText(labels), timeoutMs);
 }
 
 function findTextBox() {
@@ -224,6 +229,29 @@ function findTextBox() {
     document.querySelector("[contenteditable='true']") ||
     document.querySelector("textarea")
   );
+}
+
+async function waitForTextBox(timeoutMs) {
+  return waitFor(() => {
+    const box = findTextBox() || document.querySelector("textarea[name='message']");
+    return box && isUsableElement(box) ? box : null;
+  }, timeoutMs);
+}
+
+async function waitFor(fn, timeoutMs, intervalMs = 150) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const value = fn();
+    if (value) return value;
+    await sleep(intervalMs);
+  }
+  return null;
+}
+
+function isUsableElement(element) {
+  if (!element || element.disabled || element.getAttribute("aria-disabled") === "true") return false;
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
 }
 
 function setEditableText(node, text) {
