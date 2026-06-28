@@ -245,7 +245,8 @@ def fetch_careers_page_supplement(apply_url: str | None) -> str | None:
     if not _is_external_careers_url(apply_url):
         return None
     try:
-        with httpx.Client(timeout=20, follow_redirects=True) as client:
+        timeout = httpx.Timeout(4.0, connect=2.0)
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             response = client.get(
                 apply_url,
                 headers={"User-Agent": "JobReach/1.0 (+https://github.com/Sashank-Singh/JobReach)"},

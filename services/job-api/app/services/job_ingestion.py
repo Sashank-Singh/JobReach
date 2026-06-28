@@ -42,6 +42,7 @@ def extract_skills_from_text(text: str) -> list[str]:
     """Extract known skills from text using compiled catalog patterns."""
     if not text:
         return []
+    text = text[:20_000]
     found: list[str] = []
     seen = set()
     for pattern in _SKILL_PATTERNS:

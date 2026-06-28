@@ -1,3 +1,5 @@
+import os
+
 from app.utils.html import html_to_plain
 from app.utils.salary import fetch_careers_page_supplement
 
@@ -22,6 +24,9 @@ def merge_description_with_careers_page(
     plain = description_plain or html_to_plain(description) or ""
 
     if _has_pay_section(plain) and not _has_careers_footer_junk(plain):
+        return description, plain or description_plain
+
+    if os.getenv("JOBREACH_FETCH_CAREERS_SUPPLEMENT") != "1":
         return description, plain or description_plain
 
     supplement = fetch_careers_page_supplement(apply_url)
